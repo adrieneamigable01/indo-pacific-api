@@ -409,7 +409,6 @@ if (file_exists($path)) {
 
 }
 ?>
-<img src="<?= $base64 ?>" style="width:100%">
 </div>
 <div class="text-center">
         </div>
