@@ -20,7 +20,7 @@ class Pdf
 
         $dompdf = new Dompdf($options);
 
-        $dompdf->setPaper('legal', 'portrait');
+        $dompdf->setPaper('A4', 'portrait');
         $dompdf->loadHtml($html);
         $dompdf->render();
 
