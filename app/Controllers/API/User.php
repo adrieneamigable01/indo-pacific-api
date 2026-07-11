@@ -102,9 +102,7 @@ class User extends BaseController
      */
     public function login()
     {
-        $model = new UserModel();
-        $password = $model->hashPassword("123456");
-        print_r($password);exit;
+
         $input = $this->getRequestInput($this->request);
 
         $rules = [
