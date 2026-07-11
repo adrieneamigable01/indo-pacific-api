@@ -102,16 +102,6 @@ class User extends BaseController
      */
     public function login()
     {
-         return $this->response->setJSON([
-            'method'        => $this->request->getMethod(),
-            'content_type'  => $this->request->getHeaderLine('Content-Type'),
-            'body'          => $this->request->getBody(),
-            'post'          => $this->request->getPost(),
-            'json'          => $this->request->getJSON(true),
-            'php_input'     => file_get_contents('php://input'),
-        ]);
-        //  $model = new UserModel();
-        // print($model->->hashPassword("123456"))
         
         $input = $this->getRequestInput($this->request);
 
