@@ -32,7 +32,7 @@ class Database extends Config
      */
     public $default = [
         'DSN'      => '',
-        'hostname' => 'localhost',
+        'hostname' => 'srv2050.hstgr.io',
         'username' => 'u859692781_indopacific',
         'password' => 'Indopacific051824',
         'database' => 'u859692781_indopacific',
