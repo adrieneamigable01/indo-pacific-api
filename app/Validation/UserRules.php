@@ -20,7 +20,7 @@ class UserRules
             // --- THE FIX ---
             // Check if $user is an array or an object and get the password accordingly
             $hashInDb = is_array($user) ? $user['password'] : $user->password;
-            print_r($hashInDb);return false;
+        
             // Ensure we actually found a hash string
             if (empty($hashInDb)) {
                 return false;
