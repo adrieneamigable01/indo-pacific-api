@@ -34,7 +34,7 @@ class Database extends Config
         'DSN'      => '',
         'hostname' => 'srv2050.hstgr.io',
         'username' => 'u859692781_indopacific',
-        'password' => 'Indopacific051824',
+        'password' => 'Indopacific051824!',
         'database' => 'u859692781_indopacific',
         'DBDriver' => 'MySQLi',
         'DBPrefix' => '',
