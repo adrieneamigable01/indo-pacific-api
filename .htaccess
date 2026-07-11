@@ -1,9 +1,31 @@
 <IfModule mod_mime.c>
-  AddHandler application/x-httpd-php81 .php
+    AddHandler application/x-httpd-php81 .php
 </IfModule>
 
-RewriteEngine on
-RewriteCond $1 !^(index\.php|public|\.txt)
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php?$1
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # If you are using a subfolder, adjust RewriteBase accordingly.
+    # Example:
+    # RewriteBase /indo-pacific-api/public/
+    RewriteBase /
+
+    # Redirect Trailing Slashes...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Rewrite "www.example.com -> www.example.com/index.php"
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([\s\S]*)$ index.php/$1 [L,NC,QSA]
+
+    # Prevent access to hidden files
+    RewriteRule (^|/)\. - [F,L]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+    ErrorDocument 404 /index.php
+</IfModule>
+
+ServerSignature Off
