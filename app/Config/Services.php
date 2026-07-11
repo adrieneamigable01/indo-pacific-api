@@ -21,7 +21,7 @@ class Services extends BaseService
 {
     public static function getSecretKey() 
     {
-        return getenv('JWT_SECRET_KEY');
+        return env('JWT_SECRET_KEY');
     } 
 
     public static function getPrivateKey()

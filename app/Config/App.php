@@ -23,7 +23,7 @@ class App extends BaseConfig
      *
      * @var string
      */
-    public $baseURL = 'http://localhost:8080/';
+    public $baseURL = 'http://localhost/campco_api/public/';
 
     /**
      * --------------------------------------------------------------------------
@@ -461,4 +461,6 @@ class App extends BaseConfig
      * @var bool
      */
     public $CSPEnabled = false;
+
+    public array $allowedHostnames = [];
 }

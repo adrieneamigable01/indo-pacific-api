@@ -47,7 +47,7 @@ class Token extends BaseController
         } catch (Exception $ex) {
             return $this->getResponse(
                     [
-                        'error' => $ex->getMessage(),
+                        'message' => $ex->getMessage(),
                     ],
                     ResponseInterface::HTTP_BAD_REQUEST
                 );

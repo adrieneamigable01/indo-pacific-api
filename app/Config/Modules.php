@@ -50,4 +50,7 @@ class Modules extends BaseModules
         'routes',
         'services',
     ];
+
+
+    public array $composerPackages = [];
 }

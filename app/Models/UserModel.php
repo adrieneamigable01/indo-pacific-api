@@ -7,16 +7,17 @@ use Exception;
 
 class UserModel extends Model
 {
-    protected $table = 'user';
+    protected $table = 'users';
     protected $allowedFields = [
         'name',
-        'email',
+        'username',
         'password',
     ];
     protected $updatedField = 'updated_at';
 
     protected $beforeInsert = ['beforeInsert'];
     protected $beforeUpdate = ['beforeUpdate'];
+    protected $returnType = 'array';
 
     protected function beforeInsert(array $data): array
     {
@@ -37,7 +38,7 @@ class UserModel extends Model
         return $data;
     }
 
-    private function hashPassword(string $plaintextPassword): string
+    public function hashPassword(string $plaintextPassword): string
     {
         return password_hash($plaintextPassword, PASSWORD_BCRYPT);
     }
@@ -53,5 +54,125 @@ class UserModel extends Model
             throw new Exception('User does not exist for specified email address');
 
         return $user;
+    }
+    public function findUserByEmail(string $email)
+    {
+        $user = $this
+            ->asArray()
+            ->where(['email' => $email])
+            ->first();
+
+        if (!$user) 
+            throw new Exception('User does not exist for specified email address');
+
+        return $user;
+    }
+    public function findUserByUserId(string $userid)
+    {
+        $user = $this
+            ->asArray()
+            ->where(['userid' => $userid])
+            ->first();
+        
+        if (!$user) 
+            throw new Exception('User does not exist for specified email address');
+
+        return $user;
+    }
+    public function getCashiers(
+        string $search = NULL
+    )
+    {
+
+        $builder =
+
+            $this->db
+
+            ->table('users')
+
+            ->select("
+
+                userid,
+
+                lastname,
+
+                firstname,
+
+                middlename,
+
+                email,
+
+                mobile_number,
+
+                role,
+
+                usertype
+
+            ")
+
+            ->where(
+                'is_active',
+                1
+            )
+
+            ->where(
+                'UPPER(role)',
+                'CASHIER'
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | SEARCH
+        |--------------------------------------------------------------------------
+        */
+
+        if(!empty($search)){
+
+            $builder
+
+            ->groupStart()
+
+            ->like(
+                'firstname',
+                $search
+            )
+
+            ->orLike(
+                'lastname',
+                $search
+            )
+
+            ->orLike(
+                'email',
+                $search
+            )
+
+            ->orLike(
+                'mobile_number',
+                $search
+            )
+
+            ->groupEnd();
+
+        }
+
+        return
+
+            $builder
+
+            ->orderBy(
+                'lastname',
+                'ASC'
+            )
+
+            ->orderBy(
+                'firstname',
+                'ASC'
+            )
+
+            ->get()
+
+            ->getResultArray();
+
     }
 }

@@ -11,6 +11,7 @@ use CodeIgniter\Debug\Toolbar\Collectors\Routes;
 use CodeIgniter\Debug\Toolbar\Collectors\Timers;
 use CodeIgniter\Debug\Toolbar\Collectors\Views;
 
+
 /**
  * --------------------------------------------------------------------------
  * Debug Toolbar
@@ -84,4 +85,6 @@ class Toolbar extends BaseConfig
      * @var int
      */
     public $maxQueries = 100;
+
+    public bool $enabled = false;
 }
