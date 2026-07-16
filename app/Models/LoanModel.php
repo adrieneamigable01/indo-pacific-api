@@ -58,8 +58,8 @@ class LoanModel extends Model
                 'left'
             );
       
-        if (!empty($where['l.status'])) {
-            $builder->where('l.status',$where['l.status']);
+        if (!empty($where['status'])) {
+            $builder->where('l.status',$where['status']);
         }
         if (!empty($where['borrower_id'])) {
              $builder->where('l.borrower_id',$where['borrower_id']);
@@ -192,6 +192,19 @@ class LoanModel extends Model
                 ->table('loan_payments')
                 ->where('loan_id', $loan['loan_id'])
                 ->orderBy('payment_date', 'DESC')
+                ->get()
+                ->getResultArray();
+
+            /*
+            |--------------------------------------------------------------------------
+            | BONUS DEDUCTIONS
+            |--------------------------------------------------------------------------
+            */
+
+            $loan['bonus_deductions'] = $this->db
+                ->table('loan_bonus_deductions')
+                ->where('loan_id', $loan['loan_id'])
+                ->orderBy('created_at', 'DESC')
                 ->get()
                 ->getResultArray();
 
@@ -501,4 +514,13 @@ class LoanModel extends Model
             ->orderBy('loan_id', 'DESC')
             ->findAll();
     }
+    public function getLoanCount($status, $borrower_id)
+    {
+        return $this->db
+            ->table('loans')
+            ->where('status', $status)
+            ->where('borrower_id', $borrower_id)
+            ->countAllResults();
+    }
+
 }

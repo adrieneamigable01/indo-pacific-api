@@ -25,6 +25,7 @@ class Loan extends BaseController
     {
         return $this->get();
     }
+    
 
     /**
      * GET LOANS
@@ -52,9 +53,15 @@ class Loan extends BaseController
         
             if(!empty($borrower_id)){
                 $res['salary'] = $this->getBorrowerSalary($borrower_id);
-            }
-            if(!empty($borrower_id)){
                 $res['payments'] = $this->getLoanPaymentsByYear($borrower_id);
+                $res['activeLoanCount'] =  $this->loanModel->getLoanCount(
+                        'RELEASED',
+                        $borrower_id
+                    );
+                 $res['pendingLoanCount'] =  $this->loanModel->getLoanCount(
+                        'PENDING',
+                        $borrower_id
+                    );
             }
 
             return $this->response->setJSON($res);
@@ -827,6 +834,222 @@ class Loan extends BaseController
         }
 
         return true;
+    }
+
+    public function updateLoanSchedule()
+    {
+        try {
+
+            $input = $this->getRequestInput($this->request);
+
+            $validation = \Config\Services::validation();
+
+            $validation->setRules([
+
+                'loan_id'                    => 'required|numeric',
+                'loan_product_id'            => 'required|numeric',
+                'loan_amount'                => 'required|decimal',
+                'loan_terms'                 => 'required|numeric',
+                'approved_interest_rate'     => 'required|decimal',
+                'approved_processing_fee'    => 'permit_empty|decimal',
+                'release_date'               => 'required',
+                'void_reason'                => 'required',
+                'delete_by'                  => 'required|numeric',
+            ]);
+
+            if (!$validation->run($input)) {
+
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => $validation->getErrors()
+                ]);
+
+            }
+
+            $db = \Config\Database::connect();
+
+            $db->transBegin();
+
+            $loanId = (int)$input['loan_id'];
+
+            /*
+            |--------------------------------------------------------------------------
+            | GET LOAN
+            |--------------------------------------------------------------------------
+            */
+
+            $loan = $db->table('loans')
+                ->where('loan_id', $loanId)
+                ->get()
+                ->getRowArray();
+
+            if (!$loan) {
+
+                throw new \Exception(
+                    'Loan not found.'
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | CHECK IF LOAN HAS PAYMENTS
+            |--------------------------------------------------------------------------
+            */
+
+            $payment = $db->table('loan_payments')
+                ->select('
+                    COALESCE(SUM(principal_amount),0) AS principal_paid,
+                    COALESCE(SUM(interest_amount),0) AS interest_paid,
+                    COALESCE(SUM(penalty_amount),0) AS penalty_paid,
+                    COALESCE(SUM(total_amount),0) AS total_paid
+                ')
+                ->where('loan_id', $loanId)
+                ->where('status', 'ACTIVE') // or your completed status
+                ->get()
+                ->getRow();
+
+            if ($payment->total_paid > 0) {
+                throw new \Exception(
+                    'Loan cannot be updated because payments already exist.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | UPDATE LOAN
+            |--------------------------------------------------------------------------
+            */
+
+            $updateData = [
+
+                'loan_product_id' =>
+                    $input['loan_product_id'],
+
+                'loan_amount' =>
+                    $input['loan_amount'],
+
+                'loan_terms' =>
+                    $input['loan_terms'],
+
+                'approved_interest_rate' =>
+                    $input['approved_interest_rate'],
+
+                'approved_processing_fee' =>
+                    $input['approved_processing_fee'],
+
+                'release_date' =>
+                    $input['release_date']
+
+            ];
+
+            $db->table('loans')
+                ->where('loan_id', $loanId)
+                ->update($updateData);
+
+                
+            /*
+            |--------------------------------------------------------------------------
+            | VOID EXISTING SCHEDULE
+            |--------------------------------------------------------------------------
+            */
+
+            $db->table('loan_schedule')
+                ->where('loan_id', $loanId)
+                ->update([
+
+                    'is_void' => 1,
+
+                    'status' => 'VOID',
+
+                    'void_reason' => $input['void_reason'],
+
+                    'void_by' => $input['delete_by'],
+
+                    'void_at' => date('Y-m-d H:i:s')
+
+                ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | REGENERATE SCHEDULE
+            |--------------------------------------------------------------------------
+            */
+
+            $this->generateLoanSchedule(
+
+                $db,
+
+                $loanId,
+
+                (int)$input['loan_product_id'],
+
+                (float)$input['loan_amount'],
+
+                (int)$input['loan_terms'],
+
+                $input['release_date']
+
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | GET UPDATED LOAN
+            |--------------------------------------------------------------------------
+            */
+
+            $newLoan = $db->table('loans')
+                ->where('loan_id', $loanId)
+                ->get()
+                ->getRowArray();
+
+            /*
+            |--------------------------------------------------------------------------
+            | AUDIT LOG
+            |--------------------------------------------------------------------------
+            */
+
+            $this->createAuditLog(
+
+                'LOAN',
+
+                $loanId,
+
+                'UPDATE',
+
+                $loan,
+
+                $newLoan,
+
+                'Loan updated and schedule regenerated.'
+
+            );
+
+            if ($db->transStatus() === false) {
+
+                $db->transRollback();
+
+                throw new \Exception(
+                    'Failed updating loan.'
+                );
+
+            }
+
+            $db->transCommit();
+
+            return $this->getResponse([
+                'isError' => false,
+                'message' => 'Loan successfully updated.'
+            ]);
+
+        } catch (\Exception $e) {
+
+            return $this->getResponse([
+                'isError' => true,
+                'message' => $e->getMessage()
+            ]);
+
+        }
     }
 
     public function getLoanSummary($loanId)
@@ -2243,6 +2466,615 @@ class Loan extends BaseController
             );
         }
     }
+    // public function addLoanYearlySettlement(int $responseCode = ResponseInterface::HTTP_OK)
+    // {
+    //     $db = \Config\Database::connect();
+
+    //     try {
+
+    //         $input = $this->getRequestInput($this->request);
+
+    //         $rules = [
+    //             'borrower_id' => 'required|numeric',
+    //             'loan_product_id' => 'required|numeric',
+    //             'loan_amount' => 'required',
+    //             'loan_terms' => 'required',
+    //             'interest_amount' => 'required|numeric',
+    //             'processingfee_amount' => 'required|numeric',
+    //             'net_proceeds' => 'required|numeric'
+    //         ];
+
+    //         if (!$this->validateRequest($input, $rules)) {
+
+    //             return $this->getResponse(
+    //                 [
+    //                     'isError' => true,
+    //                     'message' => current($this->validator->getErrors()),
+    //                     'errors' => $this->validator->getErrors()
+    //                 ],
+    //                 ResponseInterface::HTTP_BAD_REQUEST
+    //             );
+    //         }
+
+    //         $db->transBegin();
+
+    //         $loanData = [
+    //             'borrower_id' => $input['borrower_id'],
+    //             'loan_product_id' => $input['loan_product_id'],
+    //             'loan_amount' => $input['loan_amount'],
+    //             'loan_purpose' => strtoupper(trim((string)($input['loan_purpose'] ?? ''))),
+    //             'loan_terms' => $input['loan_terms'],
+    //             'approved_interest_rate' => $input['approved_interest_rate'] ?? 0,
+    //             'approved_processing_fee' => $input['approved_processing_fee'] ?? 0,
+    //             'interest_amount' => $input['interest_amount'] ?? 0,
+    //             'processingfee_amount' => $input['processingfee_amount'] ?? 0,
+    //             'net_proceeds' => $input['net_proceeds'] ?? 0,
+    //             'status' => 'PENDING',
+    //             'created_at' => date('Y-m-d H:i:s'),
+    //             'monthly_interest_deduction' =>
+    //                 $input['monthly_interest_deduction']
+    //                 ?? 4000,
+    //         ];
+
+    //         $db->table('loans')->insert($loanData);
+
+    //         $loanId = $db->insertID();
+
+    //         if(
+    //             !empty(
+    //                 $input['settlement_ids']
+    //             )
+    //         ){
+
+    //             $settlements =
+    //                 $db->table(
+    //                     'borrower_settlements'
+    //                 )
+    //                 ->whereIn(
+    //                     'settlement_id',
+    //                     $input['settlement_ids']
+    //                 )
+    //                 ->get()
+    //                 ->getResultArray();
+
+    //             foreach(
+    //                 $settlements
+    //                 as $settlement
+    //             ){
+
+    //                 $remainingPayment =
+    //                     (float)$settlement['deficit_amount'];
+
+    //                 $details =
+    //                     $db->table(
+    //                         'borrower_settlement_details'
+    //                     )
+    //                     ->where(
+    //                         'settlement_id',
+    //                         $settlement['settlement_id']
+    //                     )
+    //                     ->get()
+    //                     ->getResultArray();
+
+    //                 foreach(
+    //                     $details
+    //                     as $detail
+    //                 ){
+
+    //                     if(
+    //                         $remainingPayment <= 0
+    //                     ){
+    //                         break;
+    //                     }
+
+    //                     $loanToSettle =
+    //                         $detail['loan_id'];
+
+    //                     $schedules =
+    //                         $db->table(
+    //                             'loan_schedule'
+    //                         )
+    //                         ->where(
+    //                             'loan_id',
+    //                             $loanToSettle
+    //                         )
+    //                         ->whereIn(
+    //                             'status',
+    //                             [
+    //                                 'UNPAID',
+    //                                 'PARTIAL'
+    //                             ]
+    //                         )
+    //                         ->orderBy(
+    //                             'due_date',
+    //                             'ASC'
+    //                         )
+    //                         ->get()
+    //                         ->getResultArray();
+
+    //                     foreach(
+    //                         $schedules
+    //                         as $schedule
+    //                     ){
+
+    //                         if(
+    //                             $remainingPayment <= 0
+    //                         ){
+    //                             break;
+    //                         }
+
+    //                         $scheduleId =
+    //                             $schedule['schedule_id'];
+
+    //                         /*
+    //                         |--------------------------------------------------------------------------
+    //                         | GET PAID TOTALS
+    //                         |--------------------------------------------------------------------------
+    //                         */
+
+    //                         $totals =
+    //                             $db->table(
+    //                                 'loan_payments'
+    //                             )
+    //                             ->select("
+    //                                 COALESCE(SUM(principal_amount),0) principal_paid,
+    //                                 COALESCE(SUM(interest_amount),0) interest_paid,
+    //                                 COALESCE(SUM(penalty_amount),0) penalty_paid
+    //                             ")
+    //                             ->where(
+    //                                 'schedule_id',
+    //                                 $scheduleId
+    //                             )
+    //                             ->get()
+    //                             ->getRowArray();
+
+    //                         $penaltyRemaining =
+    //                             max(
+    //                                 0,
+    //                                 $schedule['penalty_due']
+    //                                 -
+    //                                 $totals['penalty_paid']
+    //                             );
+
+    //                         $interestRemaining =
+    //                             max(
+    //                                 0,
+    //                                 $schedule['interest_due']
+    //                                 -
+    //                                 $totals['interest_paid']
+    //                             );
+
+    //                         $principalRemaining =
+    //                             max(
+    //                                 0,
+    //                                 $schedule['principal_due']
+    //                                 -
+    //                                 $totals['principal_paid']
+    //                             );
+
+    //                         $penaltyPaid = 0;
+    //                         $interestPaid = 0;
+    //                         $principalPaid = 0;
+
+    //                         /*
+    //                         |--------------------------------------------------------------------------
+    //                         | PENALTY
+    //                         |--------------------------------------------------------------------------
+    //                         */
+
+    //                         if(
+    //                             $remainingPayment > 0 &&
+    //                             $penaltyRemaining > 0
+    //                         ){
+
+    //                             $penaltyPaid =
+    //                                 min(
+    //                                     $remainingPayment,
+    //                                     $penaltyRemaining
+    //                                 );
+
+    //                             $remainingPayment -=
+    //                                 $penaltyPaid;
+    //                         }
+
+    //                         /*
+    //                         |--------------------------------------------------------------------------
+    //                         | INTEREST
+    //                         |--------------------------------------------------------------------------
+    //                         */
+
+    //                         if(
+    //                             $remainingPayment > 0 &&
+    //                             $interestRemaining > 0
+    //                         ){
+
+    //                             $interestPaid =
+    //                                 min(
+    //                                     $remainingPayment,
+    //                                     $interestRemaining
+    //                                 );
+
+    //                             $remainingPayment -=
+    //                                 $interestPaid;
+    //                         }
+
+    //                         /*
+    //                         |--------------------------------------------------------------------------
+    //                         | PRINCIPAL
+    //                         |--------------------------------------------------------------------------
+    //                         */
+
+    //                         if(
+    //                             $remainingPayment > 0 &&
+    //                             $principalRemaining > 0
+    //                         ){
+
+    //                             $principalPaid =
+    //                                 min(
+    //                                     $remainingPayment,
+    //                                     $principalRemaining
+    //                                 );
+
+    //                             $remainingPayment -=
+    //                                 $principalPaid;
+    //                         }
+
+    //                         $db->table(
+    //                             'loan_payments'
+    //                         )
+    //                         ->insert([
+
+    //                             'loan_id' =>
+    //                                 $loanToSettle,
+
+    //                             'schedule_id' =>
+    //                                 $scheduleId,
+
+    //                             'settlement_id' =>
+    //                                 $settlement['settlement_id'],
+
+    //                             'payment_date' =>
+    //                                 date('Y-m-d'),
+
+    //                             'payment_source' =>
+    //                                 'SETTLEMENT_LOAN',
+
+    //                             'principal_amount' =>
+    //                                 $principalPaid,
+
+    //                             'interest_amount' =>
+    //                                 $interestPaid,
+
+    //                             'penalty_amount' =>
+    //                                 $penaltyPaid,
+
+    //                             'total_amount' =>
+    //                                 (
+    //                                     $principalPaid +
+    //                                     $interestPaid +
+    //                                     $penaltyPaid
+    //                                 ),
+
+    //                             'remarks' =>
+    //                                 'SETTLEMENT LOAN PAYMENT',
+
+    //                             'created_at' =>
+    //                                 date(
+    //                                     'Y-m-d H:i:s'
+    //                                 )
+
+    //                         ]);
+
+    //                         /*
+    //                         |--------------------------------------------------------------------------
+    //                         | UPDATE SCHEDULE STATUS
+    //                         |--------------------------------------------------------------------------
+    //                         */
+
+    //                         $updatedTotals =
+    //                             $db->table(
+    //                                 'loan_payments'
+    //                             )
+    //                             ->select("
+    //                                 COALESCE(SUM(principal_amount),0) principal_paid,
+    //                                 COALESCE(SUM(interest_amount),0) interest_paid,
+    //                                 COALESCE(SUM(penalty_amount),0) penalty_paid
+    //                             ")
+    //                             ->where(
+    //                                 'schedule_id',
+    //                                 $scheduleId
+    //                             )
+    //                             ->get()
+    //                             ->getRowArray();
+
+    //                         $remainingPrincipal =
+    //                             max(
+    //                                 0,
+    //                                 $schedule['principal_due']
+    //                                 -
+    //                                 $updatedTotals['principal_paid']
+    //                             );
+
+    //                         $remainingInterest =
+    //                             max(
+    //                                 0,
+    //                                 $schedule['interest_due']
+    //                                 -
+    //                                 $updatedTotals['interest_paid']
+    //                             );
+
+    //                         $remainingPenalty =
+    //                             max(
+    //                                 0,
+    //                                 $schedule['penalty_due']
+    //                                 -
+    //                                 $updatedTotals['penalty_paid']
+    //                             );
+
+    //                         if(
+    //                             $remainingPrincipal <= 0 &&
+    //                             $remainingInterest <= 0 &&
+    //                             $remainingPenalty <= 0
+    //                         ){
+
+    //                             $scheduleStatus = 'PAID';
+
+    //                         }
+    //                         elseif(
+
+    //                             $updatedTotals['principal_paid'] > 0 ||
+    //                             $updatedTotals['interest_paid'] > 0 ||
+    //                             $updatedTotals['penalty_paid'] > 0
+
+    //                         ){
+
+    //                             $scheduleStatus = 'PARTIAL';
+
+    //                         }
+    //                         else{
+
+    //                             $scheduleStatus = 'UNPAID';
+
+    //                         }
+
+    //                         $db->table(
+    //                             'loan_schedule'
+    //                         )
+    //                         ->where(
+    //                             'schedule_id',
+    //                             $scheduleId
+    //                         )
+    //                         ->update([
+    //                             'status' =>
+    //                                 $scheduleStatus
+    //                         ]);
+
+    //                         /*
+    //                         |--------------------------------------------------------------------------
+    //                         | UPDATE LOAN STATUS
+    //                         |--------------------------------------------------------------------------
+    //                         */
+
+    //                         $remainingSchedules =
+    //                             $db->table(
+    //                                 'loan_schedule'
+    //                             )
+    //                             ->where(
+    //                                 'loan_id',
+    //                                 $loanToSettle
+    //                             )
+    //                             ->whereIn(
+    //                                 'status',
+    //                                 [
+    //                                     'UNPAID',
+    //                                     'PARTIAL'
+    //                                 ]
+    //                             )
+    //                             ->countAllResults();
+
+    //                         if(
+    //                             $remainingSchedules == 0
+    //                         ){
+
+    //                             $db->table(
+    //                                 'loans'
+    //                             )
+    //                             ->where(
+    //                                 'loan_id',
+    //                                 $loanToSettle
+    //                             )
+    //                             ->update([
+    //                                 'status' => 'PAID'
+    //                             ]);
+
+    //                         }
+
+    //                     }
+
+    //                 }
+
+    //                 $totalPaidRow =
+    //                     $db->table(
+    //                         'loan_payments'
+    //                     )
+    //                     ->selectSum(
+    //                         'total_amount'
+    //                     )
+    //                     ->where(
+    //                         'settlement_id',
+    //                         $settlement['settlement_id']
+    //                     )
+    //                     ->get()
+    //                     ->getRowArray();
+
+    //                 $totalPaid =
+    //                     (float)(
+    //                         $totalPaidRow['total_amount']
+    //                         ?? 0
+    //                     );
+
+    //                 $settlementStatus =
+    //                     $totalPaid >=
+    //                     (float)$settlement['deficit_amount']
+    //                     ? 'SETTLED'
+    //                     : 'PARTIAL';
+
+    //                 $db->table(
+    //                     'borrower_settlements'
+    //                 )
+    //                 ->where(
+    //                     'settlement_id',
+    //                     $settlement['settlement_id']
+    //                 )
+    //                 ->update([
+
+    //                     'status' =>
+    //                         $settlementStatus,
+
+    //                     'settled_at' =>
+    //                         date(
+    //                             'Y-m-d H:i:s'
+    //                         ),
+
+    //                     'settlement_loan_id' =>
+    //                         $loanId
+
+    //                 ]);
+
+    //             }
+
+    //         }
+
+    //         /*
+    //         |--------------------------------------------------------------------------
+    //         | COLLATERAL
+    //         |--------------------------------------------------------------------------
+    //         */
+
+    //         $collateralData = array_filter([
+    //             'loan_id' => $loanId,
+    //             'primary_card_name' => $input['primary_card_name'] ?? null,
+    //             'primary_card_number' => $input['primary_card_number'] ?? null,
+    //             'secondary_card_name' => $input['secondary_card_name'] ?? null,
+    //             'secondary_card_number' => $input['secondary_card_number'] ?? null
+    //         ], fn($value) => $value !== null && $value !== '');
+
+    //         if (count($collateralData) > 1) {
+
+    //             $db->table('loan_collaterals')
+    //                 ->insert($collateralData);
+    //         }
+
+    //         /*
+    //         |--------------------------------------------------------------------------
+    //         | COMAKERS
+    //         |--------------------------------------------------------------------------
+    //         */
+
+    //         if (!empty($input['comakers']) && is_array($input['comakers'])) {
+
+    //             foreach ($input['comakers'] as $comaker) {
+
+    //                 $db->table('loan_comakers')->insert([
+    //                     'loan_id' => $loanId,
+    //                     'name' => strtoupper(trim((string)($comaker['name'] ?? ''))),
+    //                     'phone' => $comaker['phone'] ?? '',
+    //                     'address' => strtoupper(trim((string)($comaker['address'] ?? '')))
+    //                 ]);
+    //             }
+    //         }
+
+            
+    //         /*
+    //         |--------------------------------------------------------------------------
+    //         | INCENTIVES DEDUCTION
+    //         |--------------------------------------------------------------------------
+    //         */
+
+    //         if(
+    //             !empty(
+    //                 $input['bonus_deductions']
+    //             )
+    //         ){
+
+    //             foreach(
+    //                 $input['bonus_deductions']
+    //                 as $bonus
+    //             ){
+
+    //                 $db->table(
+    //                     'loan_bonus_deductions'
+    //                 )->insert([
+
+    //                     'loan_id' =>
+    //                         $loanId,
+
+    //                     'deduction_type' =>
+    //                         $bonus['deduction_type'],
+
+    //                     'amount' =>
+    //                         $bonus['amount'],
+
+    //                     'is_paid' =>
+    //                         0,
+
+    //                     'created_at' =>
+    //                         date('Y-m-d H:i:s')
+
+    //                 ]);
+
+    //             }
+
+    //         }
+
+    //         $this->generateLoanSchedule(
+    //             $db,
+    //             $loanId,
+    //             (int)$input['loan_product_id'],
+    //             (float)$input['loan_amount'],
+    //             (int)$input['loan_terms']
+    //         );
+
+    //         if ($db->transStatus() === false) {
+
+    //             $db->transRollback();
+
+    //             return $this->getResponse([
+    //                 'isError' => true,
+    //                 'message' => 'Transaction failed.'
+    //             ]);
+    //         }
+
+    //         $db->transCommit();
+
+    //         $this->createAuditLog(
+    //             'LOAN',
+    //             $loanId,
+    //             'CREATE',
+    //             null,
+    //             $loanData,
+    //             'Loan created'
+    //         );
+
+    //         return $this->getResponse([
+    //             'isError' => false,
+    //             'loan_id' => $loanId,
+    //             'message' => 'Loan successfully created.'
+    //         ]);
+
+    //     } catch (Exception $ex) {
+
+    //         $db->transRollback();
+
+    //         return $this->getResponse(
+    //             [
+    //                 'isError' => true,
+    //                 'message' => $ex->getMessage(),
+    //             ],
+    //             $responseCode
+    //         );
+    //     }
+    // }
 
     public function update(int $responseCode = ResponseInterface::HTTP_OK)
     {

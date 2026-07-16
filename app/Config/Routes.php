@@ -78,6 +78,7 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     $routes->post('loan/bonus-settlement', 'API\\Loan::addBonusSettlement', ['filter' => 'auth']);
     $routes->post('loan/payment-report/pay', 'API\\Loan::addSalaryPayment', ['filter' => 'auth']);
     $routes->post('loan/bonus-collection/pay', 'API\\Loan::payBonusCollection', ['filter' => 'auth']);
+    $routes->post('loan/update-schedule', 'API\\Loan::updateLoanSchedule', ['filter' => 'auth']);
     $routes->get('loan/contract', 'API\\Loan::contractOfLoan');
     $routes->get(
         'loan/getBonusCollections',
