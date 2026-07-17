@@ -426,6 +426,54 @@ class Borrower extends BaseController
                 ]);
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | COLLATERAL
+            |--------------------------------------------------------------------------
+            */
+
+            $collateralData = [
+                'primary_card_name'      => $input['primary_card_name'] ?? null,
+                'primary_card_number'    => $input['primary_card_number'] ?? null,
+                'secondary_card_name'    => $input['secondary_card_name'] ?? null,
+                'secondary_card_number'  => $input['secondary_card_number'] ?? null
+            ];
+
+            // Check if at least one collateral field has a value
+            $hasCollateral = false;
+
+            foreach ($collateralData as $value) {
+                if ($value !== null && trim($value) !== '') {
+                    $hasCollateral = true;
+                    break;
+                }
+            }
+
+            if ($hasCollateral) {
+
+                $collateral = $db->table('borrower_collaterals')
+                    ->where('borrower_id', $borrowerId)
+                    ->get()
+                    ->getRowArray();
+
+                if ($collateral) {
+
+                    // Update existing collateral
+                    $db->table('borrower_collaterals')
+                        ->where('borrower_id', $borrowerId)
+                        ->update($collateralData);
+
+                } else {
+
+                    // Create new collateral record
+                    $collateralData['borrower_id'] = $borrowerId;
+
+                    $db->table('borrower_collaterals')
+                        ->insert($collateralData);
+
+                }
+            }
+
             $db->transCommit();
 
             /*
