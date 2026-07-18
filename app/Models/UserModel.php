@@ -6,7 +6,8 @@ use CodeIgniter\Model;
 use Exception;
 
 class UserModel extends Model
-{
+{   
+    protected $primaryKey = 'userid';
     protected $table = 'users';
     protected $allowedFields = [
         'name',

@@ -24,42 +24,65 @@ use Config\Services;
         $config = [
             'protocol'      =>'smtp',
             'smtp_host'     =>'smtp.gmail.com',
-            'smtp_user'     =>'bariliprime.lending2010@gmail.com',
-            'smtp_pass'     =>'txgs xsog lenz uxxy',
+            'smtp_user'     =>'iplcnotification@gmail.com',
+            'smtp_pass'     =>'qzgd genr idrr aimx',
             'smtp_port'     =>'587',
             'validate'      =>'true',
             'encrypt'       =>'tls',
-            'from_name'     => 'Barili Prime Lending Corp.',
-            'from_email'    =>'notificationbariliprimelending@gmail.com',
-            'reply'         =>'notificationbariliprimelending@gmail.com',
+            'from_name'     => 'INDO - PACIFIC LENDING CORPORATION.',
+            'from_email'    =>'indopaficiclendingcorporaion@gmail.com',
+            'reply'         =>'indopaficiclendingcorporaion@gmail.com',
         ];
         
         return $config;
     }
 
         function otpEmailBody($data){
+            $action = $data['action'];
+            $actionMessages = [
 
-    
-        
-        $template = "
-            Dear {name}<br><br><br>
+                'login'              => 'login',
+                'delete_loan'        => 'loan deletion',
+                'update_schedule'    => 'loan schedule update',
+                'delete_borrower'    => 'borrower deletion',
+                'full_paid_borrower' => 'mark a borrower as fully paid',
+                'approve_return'     => 'return approval',
+                'return_to_manager'  => 'return to manager'
 
-            To complete your {action} request, please use the following One-Time Password (OTP): <br><br>
+            ];
 
-            {otp} <br><br>
+            $actionText = $actionMessages[$action] ?? 'requested';
+            
+            $template = "
+                Dear {name},<br><br>
 
-            This OTP is valid until [{expires_at}] and can be used only once. If you did not request this OTP, please disregard this email or contact our support team for assistance.
-        ";
+                We received a request to <strong>{$actionText}</strong> on your account.<br><br>
 
-        $name = isset($data['name']) ? $data['name'] : 'user';
-        $resdata = str_replace(
-            array('{name}','{otp}','{expires_at}','{action}'),
-            array($name,$data['otp'],$data['expires_at'],$data['action']),
-            $template
-        );
+                To continue, please use the following One-Time Password (OTP):<br><br>
 
-        return $resdata;
-    }
+                <div style='font-size:28px;font-weight:bold;letter-spacing:5px;text-align:center;'>
+                    {otp}
+                </div>
+
+                <br>
+
+                This OTP is valid until <strong>{expires_at}</strong> and can only be used once.<br><br>
+
+                If you did not initiate this request, please ignore this email or contact your system administrator immediately.<br><br>
+
+                Thank you,<br>
+                <strong>Indo-Pacific Lending Corporation</strong>
+            ";
+
+            $name = isset($data['name']) ? $data['name'] : 'user';
+            $resdata = str_replace(
+                array('{name}','{otp}','{expires_at}','{action}'),
+                array($name,$data['otp'],$data['expires_at'],$data['action']),
+                $template
+            );
+
+            return $resdata;
+        }
 
         function sendOTP($data){
         
@@ -109,9 +132,9 @@ use Config\Services;
             )
         );
         $send->isHTML(true);
-        $send->AddReplyTo('bariliprime.lending2010@gmail.com');
+        $send->AddReplyTo('indopacificlendingcorporation@gmail.com');
         // Sender information
-        $send->setFrom('bariliprime.lending2010@gmail.com', 'BARILI PRIME LENDING CORPORATION');
+        $send->setFrom('indopacificlendingcorporation@gmail.com', 'INDO-PACIFIC LENDING CORPORATION');
         $send->addAddress($recipient);
         if (isset($_FILES['images'])) {
             $files = $_FILES['images'];

@@ -13,11 +13,12 @@ use Exception;
 class JWTAuth implements FilterInterface
 {
     use ResponseTrait;
-
+    protected $db;
     public function __construct()
     {
         // initialize helper
         helper('jwt');
+        $this->db = db_connect();
     }
 
     /**
@@ -33,11 +34,12 @@ class JWTAuth implements FilterInterface
 
             // 2. CHECK THE BLACKLIST TABLE
             // We do this before heavy validation to save resources if already logged out.
-            $db = \Config\Database::connect();
-            $isBlacklisted = $db->table('token_blacklist')
-                                ->where('token', $encodedToken)
-                                ->get()
-                                ->getRow();
+
+
+            $isBlacklisted = $this->db->table('token_blacklist')
+                ->where('token', $encodedToken)
+                ->get()
+                ->getRow();
 
             if ($isBlacklisted) {
                 throw new Exception('Token has been revoked. Please login again.');

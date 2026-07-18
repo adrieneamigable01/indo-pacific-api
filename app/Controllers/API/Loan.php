@@ -11,14 +11,19 @@ use CodeIgniter\API\ResponseTrait;
 use Exception;
 use ReflectionException;
 use App\Libraries\Pdf;
+use App\Models\UserModel;
 
 class Loan extends BaseController
 {
     protected $loanModel;
+    protected $userModel;
 
     public function __construct()
     {
+        helper('otp_helper');
+        helper('jwt');
         $this->loanModel = new LoanModel();
+        $this->userModel = new UserModel();
     }
 
     public function index()
@@ -5051,6 +5056,78 @@ class Loan extends BaseController
         );
     }
 
+    public function sendLoanOTP()
+    {
+        helper('jwt');
+
+        try {
+
+            $input = $this->getRequestInput($this->request);
+
+            $validation = \Config\Services::validation();
+
+            $validation->setRules([
+
+                'userid'                    => 'required|numeric',
+                'loan_id'                   => 'required|numeric',
+                'request_type'              => 'required',
+            ]);
+
+            if (!$validation->run($input)) {
+
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => $validation->getErrors()
+                ]);
+
+            }
+            $user = (new UserModel())
+                ->find($input['userid']);
+           
+            if (!$user) {
+
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => 'User not found.'
+                ]);
+
+            }
+
+            $otpPayload = [
+
+                'userid'        => $user['userid'],
+                'email'         => $user['email'],
+                'name'          => $user['firstname'].' '.$user['lastname'],
+                'mobile_number' => $user['mobile_number'],
+                'otp_type'      => 'EMAIL',
+                'action'        => $input['request_type'],
+                'foreign_id'    => $input['loan_id']
+
+            ];
+
+            $otp = generate_otp($otpPayload);
+
+            return $this->getResponse([
+
+                'isError' => false,
+                'message' => 'OTP sent successfully.',
+                'otp'     => $otp
+
+            ]);
+
+        } catch(Exception $e){
+
+            return $this->getResponse([
+
+                'isError'=>true,
+                'message'=>$e->getMessage()
+
+            ]);
+
+        }
+
+    }
+
     public function getBonusCollections()
     {
         try {
@@ -6003,6 +6080,70 @@ class Loan extends BaseController
 
             ]);
 
+        }
+    }
+    public function validateLoanOTP(int $responseCode = ResponseInterface::HTTP_OK){
+        
+        try{
+         $input = $this->getRequestInput($this->request);
+            $validation = \Config\Services::validation();
+
+            $validation->setRules([
+
+                'userid'                    => 'required|numeric',
+                'loan_id'                   => 'required|numeric',
+                'request_type'              => 'required',
+                'otp'                       => 'required',
+            ]);
+
+            if (!$validation->run($input)) {
+
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => $validation->getErrors()
+                ]);
+
+            }
+
+            $model = new UserModel();
+        
+          
+
+            $payload= array(
+                'foreign_id' => $input['loan_id'],
+                'userid' => $input['userid'],
+                'otp' => $input['otp'],
+                'action' => $input['request_type'],
+            );
+           
+            $validOTP = validate_otp($payload,0);
+            $user = $model->findUserByUserId($input['userid']);
+            $token = getSignedJWTForUser($user);
+            $user['access_token'] = $token;
+            if($validOTP){
+                return  $this->getResponse(
+                    [
+                    'isError' => false,
+                    'data' => $user,
+                    'access_token' => $token,
+                    'message'   => "Success",
+                    ]
+                );
+            }else{
+                return  $this->getResponse(
+                    [
+                    'isError' => true,
+                        'message'   => "Invalid or expired OTP.",
+                    ]
+                );
+            }
+        }catch (Exception $ex) {
+            return $this->getResponse(
+                [
+                    'message' => $ex->getMessage(),
+                ],
+                $responseCode
+            );
         }
     }
 }
