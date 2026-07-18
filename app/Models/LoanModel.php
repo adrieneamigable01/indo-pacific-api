@@ -399,6 +399,13 @@ class LoanModel extends Model
             ->get()
             ->getResultArray();
     }
+    public function getRepresentative()
+    {
+        return $this->db->table('company_representative')
+            ->where('is_active', 1)
+            ->get()
+            ->getResultArray();
+    }
 
     /**
      * SAVE COLLATERAL

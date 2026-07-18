@@ -1,7 +1,6 @@
 
 
 <?php
-
 //   print_r($comaker);exit;
 function addOrdinalNumberSuffix($num)
 {
@@ -430,7 +429,7 @@ if (file_exists($path)) {
                 <b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;INDO-PACIFIC LENDING CORPORATION</b>, a 
                 corporation duly organized and existing under and in accordance with the laws of the Republic of the Philippines, 
                 with office and principal place of business at H. Alquizola Street, Poblacion, Barili, Cebu, Philippines, herein 
-                represented by Raven Wyndell C. Ricaplaza, and hereinafter referred to as the <b>“LENDER”</b>;
+                represented by <?php echo $representative[0]['company_representative_name']?>, and hereinafter referred to as the <b>“LENDER”</b>;
             </div>
         </div>
 
@@ -854,7 +853,7 @@ if (file_exists($path)) {
         <div class="text-center" style="margin-top:20px;">
             <b>INDO - PACIFIC LENDING CORPORATION</b><br>
             <i>Duly represented by:</i> <br><br><br>
-            <u><b> Ricaplaza Raven Wyndell </b></u>
+            <u><b> <?php echo $representative[0]['company_representative_name']?> </b></u>
         </div>
 
 
@@ -935,7 +934,7 @@ if (file_exists($path)) {
                     <tbody>
                         <tr>
                             <td>
-                                Ricaplaza Raven Wyndell
+                                <?php echo $representative[0]['company_representative_name']?>
                                 <br>
                                 <br>
                             </td>
@@ -1169,7 +1168,7 @@ if (file_exists($path)) {
                     <tr class="text-center">
                         <td>
 
-                            <b>Ricaplaza Raven Wyndell</b>
+                            <b><?php echo $representative[0]['company_representative_name']?></b>
                         </td>
                         <td>
                             <b><?php echo $comakers[0]['name'] ?></b><br>
