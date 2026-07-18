@@ -328,7 +328,7 @@
                 <tbody>
                 <tr>
                     <td style="width:50%;">LENDER</td>
-                    <td style="width:50%;">INDO PACIFIC LENDING CORPORATION</td>
+                    <td style="width:50%;">INDO - PACIFIC LENDING CORPORATION</td>
                 </tr>
                 <tr>
                     <td style="width:50%;">BORROWER</td>
@@ -397,7 +397,7 @@
                     </tr>
                     <tr>
                         <td style="width:50%;">GSIS</td>
-                        <td style="width:50%;">-</td>
+                        <td style="width:50%;">OTHERS</td>
                     </tr>
                 </tbody>
             </table>
