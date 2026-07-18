@@ -3231,7 +3231,8 @@ class Loan extends BaseController
             $input = $this->getRequestInput($this->request);
 
             $rules = [
-                'loan_id' => 'required|numeric'
+                'loan_id' => 'required|numeric',
+                'voidReason' => 'required',
             ];
 
             if (!$this->validateRequest($input, $rules)) {
@@ -3246,6 +3247,7 @@ class Loan extends BaseController
             }
 
             $loanId = $input['loan_id'];
+            $voidReason = $input['voidReason'];
 
             $oldLoan = $this->loanModel
                 ->where('loan_id', $loanId)
@@ -3262,7 +3264,8 @@ class Loan extends BaseController
             $this->loanModel
                 ->where('loan_id', $loanId)
                 ->set([
-                    'status' => 'VOID'
+                    'status' => 'VOID',
+                    'voidReason' => $voidReason,
                 ])
                 ->update();
 

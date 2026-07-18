@@ -51,8 +51,10 @@ class BorrowerModel extends Model
                 bs.home_address as spouse_home_address,
                 bcl.primary_card_name,
                 bcl.primary_card_number,
+                bcl.primary_card_expiry,
                 bcl.secondary_card_name,
-                bcl.secondary_card_number
+                bcl.secondary_card_number,
+                bcl.secondary_card_expiry
             ")
             ->join('borrower_credentials bc', 'bc.borrower_id=b.borrower_id', 'left')
             ->join('borrower_employment be', 'be.borrower_id=b.borrower_id', 'left')

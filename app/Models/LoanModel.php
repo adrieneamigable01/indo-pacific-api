@@ -26,6 +26,7 @@ class LoanModel extends Model
         'created_at',
         'approveRemarks',
         'disapproveReason',
+        'voidReason',
     ];
 
     /**

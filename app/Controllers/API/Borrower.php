@@ -192,6 +192,44 @@ class Borrower extends BaseController
                 $db->table('borrower_spouses')->insert($spouseData);
             }
 
+              // Check if at least one collateral field has a value
+            /*
+            |--------------------------------------------------------------------------
+            | COLLATERAL
+            |--------------------------------------------------------------------------
+            */
+
+            $collateralData = [
+                'primary_card_name'       => $input['primary_card_name'] ?? null,
+                'primary_card_number'     => $input['primary_card_number'] ?? null,
+                'primary_card_expiry'     => $input['primary_card_expiry'] ?? null,
+                'secondary_card_name'     => $input['secondary_card_name'] ?? null,
+                'secondary_card_number'   => $input['secondary_card_number'] ?? null,
+                'secondary_card_expiry'   => $input['secondary_card_expiry'] ?? null,
+            ];
+
+            $collateral = $db->table('borrower_collaterals')
+                ->where('borrower_id', $borrowerId)
+                ->get()
+                ->getRowArray();
+
+            if ($collateral) {
+
+                // Update existing collateral
+                $db->table('borrower_collaterals')
+                    ->where('borrower_id', $borrowerId)
+                    ->update($collateralData);
+
+            } else {
+
+                // Insert new collateral record
+                $collateralData['borrower_id'] = $borrowerId;
+
+                $db->table('borrower_collaterals')
+                    ->insert($collateralData);
+
+            }
+
             if ($db->transStatus() === false) {
                 $db->transRollback();
 
@@ -435,43 +473,48 @@ class Borrower extends BaseController
             $collateralData = [
                 'primary_card_name'      => $input['primary_card_name'] ?? null,
                 'primary_card_number'    => $input['primary_card_number'] ?? null,
+                'primary_card_expiry'    => $input['primary_card_expiry'] ?? null,
                 'secondary_card_name'    => $input['secondary_card_name'] ?? null,
-                'secondary_card_number'  => $input['secondary_card_number'] ?? null
+                'secondary_card_number'  => $input['secondary_card_number'] ?? null,
+                'secondary_card_expiry'  => $input['secondary_card_expiry'] ?? null
             ];
 
             // Check if at least one collateral field has a value
-            $hasCollateral = false;
+            /*
+            |--------------------------------------------------------------------------
+            | COLLATERAL
+            |--------------------------------------------------------------------------
+            */
 
-            foreach ($collateralData as $value) {
-                if ($value !== null && trim($value) !== '') {
-                    $hasCollateral = true;
-                    break;
-                }
-            }
+            $collateralData = [
+                'primary_card_name'       => $input['primary_card_name'] ?? null,
+                'primary_card_number'     => $input['primary_card_number'] ?? null,
+                'primary_card_expiry'     => $input['primary_card_expiry'] ?? null,
+                'secondary_card_name'     => $input['secondary_card_name'] ?? null,
+                'secondary_card_number'   => $input['secondary_card_number'] ?? null,
+                'secondary_card_expiry'   => $input['secondary_card_expiry'] ?? null,
+            ];
 
-            if ($hasCollateral) {
+            $collateral = $db->table('borrower_collaterals')
+                ->where('borrower_id', $borrowerId)
+                ->get()
+                ->getRowArray();
 
-                $collateral = $db->table('borrower_collaterals')
+            if ($collateral) {
+
+                // Update existing collateral
+                $db->table('borrower_collaterals')
                     ->where('borrower_id', $borrowerId)
-                    ->get()
-                    ->getRowArray();
+                    ->update($collateralData);
 
-                if ($collateral) {
+            } else {
 
-                    // Update existing collateral
-                    $db->table('borrower_collaterals')
-                        ->where('borrower_id', $borrowerId)
-                        ->update($collateralData);
+                // Insert new collateral record
+                $collateralData['borrower_id'] = $borrowerId;
 
-                } else {
+                $db->table('borrower_collaterals')
+                    ->insert($collateralData);
 
-                    // Create new collateral record
-                    $collateralData['borrower_id'] = $borrowerId;
-
-                    $db->table('borrower_collaterals')
-                        ->insert($collateralData);
-
-                }
             }
 
             $db->transCommit();
@@ -510,7 +553,6 @@ class Borrower extends BaseController
                 $responseCode
             );
         }
-
 
     }
 
