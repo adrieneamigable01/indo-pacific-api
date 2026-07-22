@@ -58,7 +58,7 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     $routes->delete('borrower', 'API\\Borrower::void', ['filter' => 'auth']);
     $routes->get('borrower/summary', 'API\\Borrower::getSummary', ['filter' => 'auth']);
     $routes->get('borrower/importdraft', 'API\\Borrower::importDraft', ['filter' => 'auth']);
-    
+    $routes->get('borrower/settlement-deficit', 'API\\Loan::getBorrowerSettlementDeficit');    
     
     // -----------------------------
     // LOAN / BORROWERS ROUTES

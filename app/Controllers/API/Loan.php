@@ -12,6 +12,7 @@ use Exception;
 use ReflectionException;
 use App\Libraries\Pdf;
 use App\Models\UserModel;
+use DateTime;
 
 class Loan extends BaseController
 {
@@ -35,50 +36,123 @@ class Loan extends BaseController
     /**
      * GET LOANS
      */
+    // public function get()
+    // {
+    //     try {
+
+    //         $search = $this->request->getGet('search'); 
+    //         $status = $this->request->getGet('status');
+    //         $borrower_id = $this->request->getGet('borrower_id');
+           
+    //         $where = array(
+    //             'status' => $status,
+    //             'borrower_id' => $borrower_id
+    //         );
+
+    //         $data = $this->loanModel->getLoans($search,$where);
+
+    //         $res = [
+    //             'isError' => false,
+    //             'message' => 'Success',
+    //             'data' => $data,
+    //         ];
+        
+    //         if(!empty($borrower_id)){
+    //             $res['salary'] = $this->getBorrowerSalary($borrower_id);
+    //             $res['payments'] = $this->getLoanPaymentsByYear($borrower_id);
+    //             $res['activeLoanCount'] =  $this->loanModel->getLoanCount(
+    //                     'RELEASED',
+    //                     $borrower_id
+    //                 );
+    //              $res['pendingLoanCount'] =  $this->loanModel->getLoanCount(
+    //                     'PENDING',
+    //                     $borrower_id
+    //                 );
+    //         }
+
+    //         return $this->response->setJSON($res);
+
+           
+
+    //     } catch (Exception $e) {
+
+    //         return $this->response->setJSON([
+    //             'isError' => true,
+    //             'message' => $e->getMessage()
+    //         ]);
+    //     }
+    // }
+
+    /**
+     * GET LOANS SERVER SIDE
+    */
     public function get()
     {
         try {
 
-            $search = $this->request->getGet('search'); 
+            $draw = (int)$this->request->getGet('draw');
+            $start = (int)$this->request->getGet('start');
+            $length = (int)$this->request->getGet('length');
+
+            $orderColumn = $this->request->getGet('orderColumn') ?? 'loan_id';
+            $orderDir = $this->request->getGet('orderDir') ?? 'DESC';
+
+            $search = $this->request->getGet('search');
             $status = $this->request->getGet('status');
             $borrower_id = $this->request->getGet('borrower_id');
-           
-            $where = array(
+
+            $where = [
                 'status' => $status,
                 'borrower_id' => $borrower_id
+            ];
+
+            $data = $this->loanModel->getLoanServerside(
+                $search,
+                $where,
+                $start,
+                $length,
+                $orderColumn,
+                $orderDir
             );
 
-            $data = $this->loanModel->getLoans($search,$where);
-
-            $res = [
-                'isError' => false,
-                'message' => 'Success',
-                'data' => $data,
+            $response = [
+                "draw" => $draw,
+                "recordsTotal" => $this->loanModel->countLoans($where),
+                "recordsFiltered" => $this->loanModel->countFilteredLoans($search, $where),
+                "data" => $data
             ];
-        
-            if(!empty($borrower_id)){
-                $res['salary'] = $this->getBorrowerSalary($borrower_id);
-                $res['payments'] = $this->getLoanPaymentsByYear($borrower_id);
-                $res['activeLoanCount'] =  $this->loanModel->getLoanCount(
+
+            if (!empty($borrower_id)) {
+
+                $response['salary'] = $this->getBorrowerSalary($borrower_id);
+
+                $response['payments'] = $this->getLoanPaymentsByYear($borrower_id);
+
+                $response['activeLoanCount'] =
+                    $this->loanModel->getLoanCount(
                         'RELEASED',
                         $borrower_id
                     );
-                 $res['pendingLoanCount'] =  $this->loanModel->getLoanCount(
+
+                $response['pendingLoanCount'] =
+                    $this->loanModel->getLoanCount(
                         'PENDING',
                         $borrower_id
                     );
             }
 
-            return $this->response->setJSON($res);
-
-           
+            return $this->response->setJSON($response);
 
         } catch (Exception $e) {
 
             return $this->response->setJSON([
-                'isError' => true,
-                'message' => $e->getMessage()
+                "draw" => 0,
+                "recordsTotal" => 0,
+                "recordsFiltered" => 0,
+                "data" => [],
+                "error" => $e->getMessage()
             ]);
+
         }
     }
 
@@ -834,6 +908,53 @@ class Loan extends BaseController
                         );
                     }
                 }
+                
+
+                break;
+            case 4:
+
+                // Monthly Principal
+                $monthlyPrincipal = $loanAmount / $loanTerms;
+
+                // Monthly Interest (Fixed)
+                $monthlyInterest = $loanAmount * 0.03;
+
+                $balance = $loanAmount;
+
+                for ($i = 1; $i <= $loanTerms; $i++) {
+
+                    $principalDue = round($monthlyPrincipal, 2);
+
+                    // Prevent rounding issues on the last payment
+                    if ($i == $loanTerms) {
+                        $principalDue = round($balance, 2);
+                    }
+
+                    $balance -= $principalDue;
+
+                    $result = $db->table('loan_schedule')->insert([
+                        'loan_id'         => $loanId,
+                        'due_date'        => date(
+                            'Y-m-d',
+                            strtotime("+{$i} month", strtotime($releaseDate))
+                        ),
+                        'principal_due'   => $principalDue,
+                        'interest_due'    => round($monthlyInterest, 2),
+                        'penalty_due'     => 0,
+                        'principal_paid'  => 0,
+                        'interest_paid'   => 0,
+                        'penalty_paid'    => 0,
+                        'balance'         => max(round($balance, 2), 0),
+                        'status'          => 'UNPAID',
+                        'created_at'      => date('Y-m-d H:i:s')
+                    ]);
+
+                    if (!$result) {
+                        throw new \Exception(
+                            'Failed generating Product 4 schedule.'
+                        );
+                    }
+                }
 
                 break;
         }
@@ -1202,11 +1323,10 @@ class Loan extends BaseController
             $remainingPayment = $amount;
 
             $schedules = $db->table('loan_schedule')
-                ->where('loan_id', $loanId)
-                ->whereIn('status', ['UNPAID', 'PARTIAL'])
-                ->orderBy('due_date', 'ASC')
-                ->get()
-                ->getResultArray();
+            ->where('loan_id', $row['loan_id'])
+            ->orderBy('due_date', 'DESC')
+            ->get()
+            ->getResultArray();
 
             if (empty($schedules)) {
                 throw new Exception('No unpaid schedules found.');
@@ -1864,9 +1984,31 @@ class Loan extends BaseController
     }
     public function addLoanYearlySettlement(int $responseCode = ResponseInterface::HTTP_OK)
     {
+        helper('jwt');
         $db = \Config\Database::connect();
+        $userId = null;
 
         try {
+
+            $authHeader = $this->request->getHeaderLine('Authorization');
+
+            if (!empty($authHeader)) {
+
+                $token = str_replace(
+                    'Bearer ',
+                    '',
+                    $this->request->getHeaderLine('Authorization')
+                );
+
+                        $encodedToken = decodeJWT($token);
+                
+                if (isset($encodedToken->data)) {
+
+                    $jwtData = (array)$encodedToken->data;
+                    
+                    $userId = $jwtData['userid'] ?? null;
+                }
+            }
 
             $input = $this->getRequestInput($this->request);
 
@@ -1916,427 +2058,163 @@ class Loan extends BaseController
 
             $loanId = $db->insertID();
 
-            if(
-                !empty(
-                    $input['settlement_ids']
-                )
-            ){
+            if (!empty($input['details'])) {
 
-                $settlements =
-                    $db->table(
-                        'borrower_settlements'
-                    )
-                    ->whereIn(
-                        'settlement_id',
-                        $input['settlement_ids']
-                    )
-                    ->get()
-                    ->getResultArray();
+                foreach ($input['details'] as $detail) {
 
-                foreach(
-                    $settlements
-                    as $settlement
-                ){
+                    $detailId = (int)$detail['detail_id'];
 
-                    $remainingPayment =
-                        (float)$settlement['deficit_amount'];
+                    /*
+                    |--------------------------------------------------------------------------
+                    | GET SETTLEMENT DETAIL
+                    |--------------------------------------------------------------------------
+                    */
 
-                    $details =
-                        $db->table(
-                            'borrower_settlement_details'
-                        )
-                        ->where(
-                            'settlement_id',
-                            $settlement['settlement_id']
-                        )
+                    $settlementDetail = $db->table('borrower_settlement_details')
+                        ->where('detail_id', $detailId)
                         ->get()
-                        ->getResultArray();
+                        ->getRowArray();
 
-                    foreach(
-                        $details
-                        as $detail
-                    ){
+                    $loan = $db->table('loans')
+                    ->select('loan_product_id')
+                    ->where('loan_id', $settlementDetail['loan_id'])
+                    ->get()
+                    ->getRowArray();
 
-                        if(
-                            $remainingPayment <= 0
-                        ){
-                            break;
-                        }
+                    $schedule = $db->table('loan_schedule')
+                        ->where('loan_id', $settlementDetail['loan_id'])
+                        ->orderBy('due_date', 'ASC')
+                        ->get()
+                        ->getRowArray();
 
-                        $loanToSettle =
-                            $detail['loan_id'];
+                    $principalAmount = 0;
+                    $interestAmount = 0;
+                    $penaltyAmount = 0;
 
-                        $schedules =
-                            $db->table(
-                                'loan_schedule'
-                            )
-                            ->where(
-                                'loan_id',
-                                $loanToSettle
-                            )
-                            ->whereIn(
-                                'status',
-                                [
-                                    'UNPAID',
-                                    'PARTIAL'
-                                ]
-                            )
-                            ->orderBy(
-                                'due_date',
-                                'ASC'
-                            )
+                    $payment = (float)$detail['amount'];
+
+                    if ( (
+                        (int)$loan['loan_product_id'] === 1 ||
+                        (int)$loan['loan_product_id'] === 4
+                    ) && $schedule) {
+
+                        $paymentTotals = $db->table('loan_payments')
+                            ->select("
+                                COALESCE(SUM(principal_amount),0) AS principal_paid,
+                                COALESCE(SUM(interest_amount),0) AS interest_paid,
+                                COALESCE(SUM(penalty_amount),0) AS penalty_paid
+                            ")
+                            ->where('loan_id', $settlementDetail['loan_id'])
+                            ->where('status', 'PAID')
                             ->get()
-                            ->getResultArray();
+                            ->getRowArray();
 
-                        foreach(
-                            $schedules
-                            as $schedule
-                        ){
+                        $remainingInterest = max(
+                            0,
+                            (float)$schedule['interest_due']
+                            - (float)$paymentTotals['interest_paid']
+                        );
 
-                            if(
-                                $remainingPayment <= 0
-                            ){
-                                break;
+                        if ($remainingInterest > 0) {
+
+                            // Apply to interest first
+                            $interestAmount = min($payment, $remainingInterest);
+
+                            // If payment exceeds remaining interest,
+                            // apply the excess to principal.
+                            $payment -= $interestAmount;
+
+                            if ($payment > 0) {
+                                $principalAmount = $payment;
                             }
 
-                            $scheduleId =
-                                $schedule['schedule_id'];
+                        } else {
 
-                            /*
-                            |--------------------------------------------------------------------------
-                            | GET PAID TOTALS
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $totals =
-                                $db->table(
-                                    'loan_payments'
-                                )
-                                ->select("
-                                    COALESCE(SUM(principal_amount),0) principal_paid,
-                                    COALESCE(SUM(interest_amount),0) interest_paid,
-                                    COALESCE(SUM(penalty_amount),0) penalty_paid
-                                ")
-                                ->where(
-                                    'schedule_id',
-                                    $scheduleId
-                                )
-                                ->get()
-                                ->getRowArray();
-
-                            $penaltyRemaining =
-                                max(
-                                    0,
-                                    $schedule['penalty_due']
-                                    -
-                                    $totals['penalty_paid']
-                                );
-
-                            $interestRemaining =
-                                max(
-                                    0,
-                                    $schedule['interest_due']
-                                    -
-                                    $totals['interest_paid']
-                                );
-
-                            $principalRemaining =
-                                max(
-                                    0,
-                                    $schedule['principal_due']
-                                    -
-                                    $totals['principal_paid']
-                                );
-
-                            $penaltyPaid = 0;
-                            $interestPaid = 0;
-                            $principalPaid = 0;
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | PENALTY
-                            |--------------------------------------------------------------------------
-                            */
-
-                            if(
-                                $remainingPayment > 0 &&
-                                $penaltyRemaining > 0
-                            ){
-
-                                $penaltyPaid =
-                                    min(
-                                        $remainingPayment,
-                                        $penaltyRemaining
-                                    );
-
-                                $remainingPayment -=
-                                    $penaltyPaid;
-                            }
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | INTEREST
-                            |--------------------------------------------------------------------------
-                            */
-
-                            if(
-                                $remainingPayment > 0 &&
-                                $interestRemaining > 0
-                            ){
-
-                                $interestPaid =
-                                    min(
-                                        $remainingPayment,
-                                        $interestRemaining
-                                    );
-
-                                $remainingPayment -=
-                                    $interestPaid;
-                            }
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | PRINCIPAL
-                            |--------------------------------------------------------------------------
-                            */
-
-                            if(
-                                $remainingPayment > 0 &&
-                                $principalRemaining > 0
-                            ){
-
-                                $principalPaid =
-                                    min(
-                                        $remainingPayment,
-                                        $principalRemaining
-                                    );
-
-                                $remainingPayment -=
-                                    $principalPaid;
-                            }
-
-                            $db->table(
-                                'loan_payments'
-                            )
-                            ->insert([
-
-                                'loan_id' =>
-                                    $loanToSettle,
-
-                                'schedule_id' =>
-                                    $scheduleId,
-
-                                'settlement_id' =>
-                                    $settlement['settlement_id'],
-
-                                'payment_date' =>
-                                    date('Y-m-d'),
-
-                                'payment_source' =>
-                                    'SETTLEMENT_LOAN',
-
-                                'principal_amount' =>
-                                    $principalPaid,
-
-                                'interest_amount' =>
-                                    $interestPaid,
-
-                                'penalty_amount' =>
-                                    $penaltyPaid,
-
-                                'total_amount' =>
-                                    (
-                                        $principalPaid +
-                                        $interestPaid +
-                                        $penaltyPaid
-                                    ),
-
-                                'remarks' =>
-                                    'SETTLEMENT LOAN PAYMENT',
-
-                                'created_at' =>
-                                    date(
-                                        'Y-m-d H:i:s'
-                                    )
-
-                            ]);
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | UPDATE SCHEDULE STATUS
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $updatedTotals =
-                                $db->table(
-                                    'loan_payments'
-                                )
-                                ->select("
-                                    COALESCE(SUM(principal_amount),0) principal_paid,
-                                    COALESCE(SUM(interest_amount),0) interest_paid,
-                                    COALESCE(SUM(penalty_amount),0) penalty_paid
-                                ")
-                                ->where(
-                                    'schedule_id',
-                                    $scheduleId
-                                )
-                                ->get()
-                                ->getRowArray();
-
-                            $remainingPrincipal =
-                                max(
-                                    0,
-                                    $schedule['principal_due']
-                                    -
-                                    $updatedTotals['principal_paid']
-                                );
-
-                            $remainingInterest =
-                                max(
-                                    0,
-                                    $schedule['interest_due']
-                                    -
-                                    $updatedTotals['interest_paid']
-                                );
-
-                            $remainingPenalty =
-                                max(
-                                    0,
-                                    $schedule['penalty_due']
-                                    -
-                                    $updatedTotals['penalty_paid']
-                                );
-
-                            if(
-                                $remainingPrincipal <= 0 &&
-                                $remainingInterest <= 0 &&
-                                $remainingPenalty <= 0
-                            ){
-
-                                $scheduleStatus = 'PAID';
-
-                            }
-                            elseif(
-
-                                $updatedTotals['principal_paid'] > 0 ||
-                                $updatedTotals['interest_paid'] > 0 ||
-                                $updatedTotals['penalty_paid'] > 0
-
-                            ){
-
-                                $scheduleStatus = 'PARTIAL';
-
-                            }
-                            else{
-
-                                $scheduleStatus = 'UNPAID';
-
-                            }
-
-                            $db->table(
-                                'loan_schedule'
-                            )
-                            ->where(
-                                'schedule_id',
-                                $scheduleId
-                            )
-                            ->update([
-                                'status' =>
-                                    $scheduleStatus
-                            ]);
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | UPDATE LOAN STATUS
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $remainingSchedules =
-                                $db->table(
-                                    'loan_schedule'
-                                )
-                                ->where(
-                                    'loan_id',
-                                    $loanToSettle
-                                )
-                                ->whereIn(
-                                    'status',
-                                    [
-                                        'UNPAID',
-                                        'PARTIAL'
-                                    ]
-                                )
-                                ->countAllResults();
-
-                            if(
-                                $remainingSchedules == 0
-                            ){
-
-                                $db->table(
-                                    'loans'
-                                )
-                                ->where(
-                                    'loan_id',
-                                    $loanToSettle
-                                )
-                                ->update([
-                                    'status' => 'PAID'
-                                ]);
-
-                            }
-
+                            // Interest already fully paid
+                            $principalAmount = $payment;
                         }
 
                     }
 
-                    $totalPaidRow =
-                        $db->table(
-                            'loan_payments'
-                        )
-                        ->selectSum(
-                            'total_amount'
-                        )
-                        ->where(
-                            'settlement_id',
-                            $settlement['settlement_id']
-                        )
-                        ->get()
-                        ->getRowArray();
+                    else {
 
-                    $totalPaid =
-                        (float)(
-                            $totalPaidRow['total_amount']
-                            ?? 0
-                        );
+                        // Existing logic for other loan products
+                        $interestAmount = $payment;
+                    }
 
-                    $settlementStatus =
-                        $totalPaid >=
-                        (float)$settlement['deficit_amount']
-                        ? 'SETTLED'
-                        : 'PARTIAL';
+                    
 
-                    $db->table(
-                        'borrower_settlements'
-                    )
-                    ->where(
-                        'settlement_id',
-                        $settlement['settlement_id']
-                    )
-                    ->update([
 
-                        'status' =>
-                            $settlementStatus,
+                    if (!$settlementDetail) {
+                        continue;
+                    }
 
-                        'settled_at' =>
-                            date(
-                                'Y-m-d H:i:s'
-                            ),
 
-                        'settlement_loan_id' =>
-                            $loanId
+                    $paidAmount = min(
+                        (float)$settlementDetail['due_amount'],
+                        (float)$settlementDetail['paid_amount'] + (float)$detail['amount']
+                    );
 
+                    // $unpaidAmount =
+                    //     (float)$settlementDetail['due_amount']
+                    //     - $paidAmount;
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | UPDATE DETAIL
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $db->table('borrower_settlement_details')
+                        ->where('detail_id', $detailId)
+                        ->update([
+                            'paid_amount'   => $paidAmount,
+                            // 'unpaid_amount' => $unpaidAmount
+                        ]);
+
+                    $db->table('loan_payments')->insert([
+                        'loan_id'             => $settlementDetail['loan_id'],
+                        'settlement_id'       => $settlementDetail['settlement_id'],
+                        'schedule_id'         => $schedule['schedule_id'] ?? null,
+                        'bonus_collection_id' => null,
+                        'bonus_deduction_id'  => $settlementDetail['bonus_deduction_id'] ?? null,
+
+                        'payment_date'        => date('Y-m-d'),
+                        'payment_month'       => date('Y-m'),
+                        'payment_type'        => 'SETTLEMENT',
+
+                        'principal_amount'    => $principalAmount,
+                        'interest_amount'     => $interestAmount,
+                        'penalty_amount'      => $penaltyAmount,
+                        'total_amount'        => (float)$detail['amount'],
+
+                        'or_number'           => null,
+                        'remarks'             => 'Settlement through Loan #' . $loanId,
+                        'collected_by'        => $userId,
+                        'created_at'          => date('Y-m-d H:i:s'),
+
+                        'status'              => 'PAID',
+                        'payment_source'      => 'SETTLEMENT'
                     ]);
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | CHECK IF THIS SETTLEMENT IS FULLY PAID
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $remaining = $db->table('borrower_settlement_details')
+                    ->where('settlement_id', $settlementDetail['settlement_id'])
+                    ->where('due_amount > paid_amount', null, false)
+                    ->countAllResults();
+
+                    $db->table('borrower_settlements')
+                    ->where('settlement_id', $settlementDetail['settlement_id'])
+                    ->update([
+                        'status' => $remaining == 0 ? 'SETTLED' : 'PARTIAL',
+                        'settlement_loan_id' => $loanId,
+                        'settled_at' => $remaining == 0 ? date('Y-m-d H:i:s') : null
+                    ]);
                 }
 
             }
@@ -4229,8 +4107,7 @@ class Loan extends BaseController
             |--------------------------------------------------------------------------
             */
 
-            $settlementMonth =
-                date('Y') . '-BONUS';
+            $settlementMonth = $input['settlementMonth'];
 
             $settlementData = [
 
@@ -6146,4 +6023,297 @@ class Loan extends BaseController
             );
         }
     }
+
+    public function getBorrowerSettlementDeficit()
+    {
+        try {
+
+            $borrowerId  = $this->request->getGet('borrower_id');
+            $selectedYear = $this->request->getGet('year');
+
+            $db = \Config\Database::connect();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Get Unpaid Settlements
+            |--------------------------------------------------------------------------
+            */
+
+            $settlements = $db->table('borrower_settlements')
+            ->where('borrower_id', $borrowerId)
+            // ->where('status', 'UNPAID')
+            ->whereIn('status', ['UNPAID', 'PARTIAL'])
+            ->orderBy('settlement_month', 'ASC')
+            ->get()
+            ->getResultArray();
+
+            $totalDeficit = 0;
+            $details = [];
+
+            foreach ($settlements as $settlement) {
+
+           
+                /*
+                |--------------------------------------------------------------------------
+                | Settlement Details
+                |--------------------------------------------------------------------------
+                */
+
+                $rows = $db->table('borrower_settlement_details d')
+                    ->select("
+                        d.*,
+                        l.loan_product_id,
+                        l.release_date,
+                        lp.product_name,
+                        lbd.deduction_type
+                    ")
+                    ->join(
+                        'loans l',
+                        'l.loan_id = d.loan_id',
+                        'left'
+                    )
+                    ->join(
+                        'loan_products lp',
+                        'lp.loan_product_id = l.loan_product_id',
+                        'left'
+                    )
+                    ->join(
+                        'loan_bonus_deductions lbd',
+                        'lbd.bonus_deduction_id = d.bonus_deduction_id',
+                        'left'
+                    )
+                    ->where(
+                        'd.settlement_id',
+                        $settlement['settlement_id']
+                    )
+                    ->get()
+                    ->getResultArray();
+
+          
+                foreach ($rows as $row) {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | FIND THE SCHEDULE THAT OWNS THIS SETTLEMENT MONTH
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $settlementDate = new DateTime(
+                        $settlement['settlement_month'] . '-01'
+                    );
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Get last schedule of the loan
+                    |--------------------------------------------------------------------------
+                    */
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | FIND MATCHING SCHEDULE
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if ((int)$row['loan_product_id'] === 1) {
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | LONG TERM LOAN
+                        | July - December  => Next Year Cycle
+                        | January - June   => Current Year Cycle
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $settlementMonth = (int)$settlementDate->format('n');
+                        $settlementYear  = (int)$settlementDate->format('Y');
+
+                        $releaseMonth = (int)date(
+                            'n',
+                            strtotime($row['release_date'])
+                        );
+
+                        if ($settlementMonth >= $releaseMonth) {
+                            $cycleYear = $settlementYear + 1;
+                        } else {
+                            $cycleYear = $settlementYear;
+                        }
+
+                        // Use the first yearly schedule for balance computation
+                        $matchedSchedule = $db->table('loan_schedule')
+                            ->where('loan_id', $row['loan_id'])
+                            ->orderBy('due_date', 'ASC')
+                            ->get()
+                            ->getRowArray();
+
+                    } else {
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | OTHER PRODUCTS
+                        | Use the last schedule as the due schedule
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $matchedSchedule = $db->table('loan_schedule')
+                            ->where('loan_id', $row['loan_id'])
+                            ->orderBy('due_date', 'DESC')
+                            ->limit(1)
+                            ->get()
+                            ->getRowArray();
+
+                        $cycleYear = (int)date(
+                            'Y',
+                            strtotime($matchedSchedule['due_date'])
+                        );
+
+                    }
+
+                    if (!$matchedSchedule) {
+                        log_message('error', 'NO MATCH Settlement='.$settlement['settlement_id'].' Loan='.$row['loan_id']);
+                        continue;
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Filter by due year
+                    |--------------------------------------------------------------------------
+                    */
+
+
+                    if ($cycleYear !== (int)$selectedYear) {
+                        log_message('error', 'YEAR FILTER Settlement='.$settlement['settlement_id'].' Loan='.$row['loan_id']);
+                        continue;
+                    }
+
+                
+
+                    $loanTotals = [
+
+                        'total_due_principal' => $matchedSchedule['principal_due'],
+                        'total_due_interest'  => $matchedSchedule['interest_due'],
+                        'total_due_penalty'   => $matchedSchedule['penalty_due'],
+
+                        'total_paid_principal' => $matchedSchedule['principal_paid'],
+                        'total_paid_interest'  => $matchedSchedule['interest_paid'],
+                        'total_paid_penalty'   => $matchedSchedule['penalty_paid']
+
+                    ];
+
+                    $totalDeficit += (float)$row['unpaid_amount'];
+
+                    $totalDuePrincipal = (float)($loanTotals['total_due_principal'] ?? 0);
+                    $totalDueInterest  = (float)($loanTotals['total_due_interest'] ?? 0);
+                    $totalDuePenalty   = (float)($loanTotals['total_due_penalty'] ?? 0);
+
+                    $totalPaidPrincipal = (float)($loanTotals['total_paid_principal'] ?? 0);
+                    $totalPaidInterest  = (float)($loanTotals['total_paid_interest'] ?? 0);
+                    $totalPaidPenalty   = (float)($loanTotals['total_paid_penalty'] ?? 0);
+
+                    $totalBalancePrincipal = max(0, $totalDuePrincipal - $totalPaidPrincipal);
+                    $totalBalanceInterest  = max(0, $totalDueInterest - $totalPaidInterest);
+                    $totalBalancePenalty   = max(0, $totalDuePenalty - $totalPaidPenalty);
+
+                    $totalBalance =
+                    $totalBalancePrincipal +
+                    $totalBalanceInterest +
+                    $totalBalancePenalty;
+
+                    if (!isset($details[$row['loan_id']])) {
+                       $bonusDueMonth = (new DateTime($matchedSchedule['due_date']))
+                        ->modify('+11 months')
+                        ->format('Y-m');
+                        $details[$row['loan_id']] = [
+
+                            'info' => [
+
+                                'loan_id' => $row['loan_id'],
+                                'due_date' => $bonusDueMonth,
+                                'loan_product_id' => $row['loan_product_id'],
+
+                                'product_name' => $row['product_name'],
+
+                                // Due
+                                'total_due_principal' => $totalDuePrincipal,
+                                'total_due_interest'  => $totalDueInterest,
+                                'total_due_penalty'   => $totalDuePenalty,
+
+                                // Paid
+                                'total_paid_principal' => $totalPaidPrincipal,
+                                'total_paid_interest'  => $totalPaidInterest,
+                                'total_paid_penalty'   => $totalPaidPenalty,
+
+                                // Remaining
+                                'balance_principal' => $totalBalancePrincipal,
+                                'balance_interest'  => $totalBalanceInterest,
+                                'balance_penalty'   => $totalBalancePenalty,
+
+                                'total_balance' => $totalBalance,
+
+                                'cycle_deficit' => 0
+
+                            ],
+
+                            'details' => []
+
+                        ];
+                    }
+
+                    // Sum the deficit for this settlement cycle
+                    $details[$row['loan_id']]['info']['cycle_deficit'] += (float)$row['unpaid_amount'];
+                
+                   
+
+                    $details[$row['loan_id']]['details'][] = [
+
+                        'detail_id' => $row['detail_id'],
+
+                        'settlement_id' => $row['settlement_id'],
+
+                        'settlement_month' => $settlement['settlement_month'],
+
+                        'bonus_deduction_id' => $row['bonus_deduction_id'],
+
+                        'deduction_type' => $row['deduction_type'],
+
+                        'amount' => (float)$row['amount'],
+
+                        'due_amount' => (float)$row['due_amount'],
+
+                        'paid_amount' => (float)$row['paid_amount'],
+
+                        'unpaid_amount' => (float)$row['unpaid_amount']
+
+                    ];
+                }
+            }
+
+            
+
+            return $this->getResponse([
+
+                'isError' => false,
+
+                'borrower_id' => $borrowerId,
+
+                'year' => $selectedYear,
+
+                'total_deficit' => $totalDeficit,
+
+                'details' => $details
+
+            ]);
+
+        } catch (Exception $ex) {
+
+            return $this->getResponse([
+
+                'isError' => true,
+
+                'message' => $ex->getMessage()
+
+            ]);
+
+        }
+    }
+
 }
