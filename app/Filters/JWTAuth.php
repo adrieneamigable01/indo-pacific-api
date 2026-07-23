@@ -18,7 +18,9 @@ class JWTAuth implements FilterInterface
     {
         // initialize helper
         helper('jwt');
-        $this->db = db_connect();
+        if ($this->db === null) {
+            $this->db = db_connect();
+        }
     }
 
     /**
