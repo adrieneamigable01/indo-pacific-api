@@ -27,6 +27,15 @@ class AuditLogModel extends Model
 
     protected $useTimestamps = false;
 
+    public function getUserLoginLogs($userid)
+    {
+        return $this
+            ->select('action, remarks, ip_address,old_data,new_data, created_at')
+            ->where('user_id', $userid)
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+    }
+
     public function createLog(array $data)
     {
         return $this->insert([
@@ -102,5 +111,115 @@ class AuditLogModel extends Model
         return $this->db->table($this->table)
             ->where('id', $id)
             ->delete();
+    }
+
+     public function getUserLogs(
+        $search,
+        $userid,
+        $action,
+        $start,
+        $length,
+        $orderColumn,
+        $orderDir
+    )
+    {
+        $builder = $this->db->table($this->table);
+
+        $builder->select("
+            id,
+            action,
+            remarks,
+            old_data,
+            new_data,
+            ip_address,
+            created_at
+        ");
+
+        $builder->where('user_id', $userid);
+
+        if (!empty($action)) {
+
+            $builder->where('action', $action);
+
+        }
+
+        if (!empty($search)) {
+
+            $builder->groupStart();
+
+            $builder->like('action', $search);
+
+            $builder->orLike('remarks', $search);
+
+            $builder->orLike('created_at', $search);
+
+            $builder->groupEnd();
+
+        }
+
+        $allowedOrderColumns = [
+
+            'id',
+            'action',
+            'remarks',
+            'created_at',
+            'ip_address'
+
+        ];
+
+        if (!in_array($orderColumn, $allowedOrderColumns)) {
+
+            $orderColumn = 'created_at';
+
+        }
+
+        $builder->orderBy($orderColumn, $orderDir);
+
+        $builder->limit($length, $start);
+
+        return $builder->get()->getResultArray();
+    }
+
+    public function countUserLogs($userid)
+    {
+        return $this
+            ->where('user_id', $userid)
+            ->countAllResults();
+    }
+
+    public function countFilteredUserLogs(
+        $search,
+        $userid,
+        $action = null
+    )
+    {
+        $builder = $this->db->table($this->table);
+
+        $builder->where('user_id', $userid);
+
+        if (!empty($action)) {
+
+            $builder->where('action', $action);
+
+        }
+
+        if (!empty($search)) {
+
+            $builder->groupStart();
+
+            $builder->like('action', $search);
+
+            $builder->orLike('remarks', $search);
+
+            $builder->orLike('ip_address', $search);
+
+            $builder->orLike('created_at', $search);
+
+            $builder->groupEnd();
+
+        }
+
+        return $builder->countAllResults();
+
     }
 }

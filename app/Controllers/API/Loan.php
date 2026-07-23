@@ -6127,6 +6127,14 @@ class Loan extends BaseController
                         $settlementMonth = (int)$settlementDate->format('n');
                         $settlementYear  = (int)$settlementDate->format('Y');
 
+                        if (empty($row['release_date'])) {
+                            log_message(
+                                'error',
+                                'Loan '.$row['loan_id'].' has no release_date.'
+                            );
+                            continue;
+                        }
+
                         $releaseMonth = (int)date(
                             'n',
                             strtotime($row['release_date'])

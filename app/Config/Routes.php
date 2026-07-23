@@ -158,5 +158,9 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     );
 
     $routes->get('user/get/cashier', 'API\\User::getCashiers', ['filter' => 'auth']);
+    $routes->get('user/get/profile', 'API\\User::getProfile', ['filter' => 'auth']);
+    $routes->put('user/update/profile', 'API\\User::updateProfile', ['filter' => 'auth']);
+    $routes->post('user/update/profile-image', 'API\\User::updateProfileImage', ['filter' => 'auth']);
+    $routes->get('user/get/logs', 'API\\User::getUserLoginLogs', ['filter' => 'auth']);
 
 }); 

@@ -10,9 +10,13 @@ class UserModel extends Model
     protected $primaryKey = 'userid';
     protected $table = 'users';
     protected $allowedFields = [
-        'name',
-        'username',
-        'password',
+        'firstname',
+        'middlename',
+        'lastname',
+        'email',
+        'mobile_number',
+        'birthdate',
+        'user_image'
     ];
     protected $updatedField = 'updated_at';
 
@@ -176,4 +180,9 @@ class UserModel extends Model
             ->getResultArray();
 
     }
+
+
+   
+
+   
 }
