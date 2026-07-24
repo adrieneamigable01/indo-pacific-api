@@ -47,7 +47,8 @@ use Config\Services;
                 'delete_borrower'    => 'borrower deletion',
                 'full_paid_borrower' => 'mark a borrower as fully paid',
                 'approve_return'     => 'return approval',
-                'return_to_manager'  => 'return to manager'
+                'return_to_manager'  => 'return to manager',
+                'change_user_password'  => 'Change user password',
 
             ];
 

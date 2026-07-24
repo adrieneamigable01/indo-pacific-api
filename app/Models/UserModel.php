@@ -16,7 +16,9 @@ class UserModel extends Model
         'email',
         'mobile_number',
         'birthdate',
-        'user_image'
+        'user_image',
+        'password',
+        'last_password_update'
     ];
     protected $updatedField = 'updated_at';
 

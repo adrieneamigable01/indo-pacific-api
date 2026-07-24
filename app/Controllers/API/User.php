@@ -106,7 +106,7 @@ class User extends BaseController
      */
     public function login()
     {
-
+        $userModel = new UserModel();
         $input = $this->getRequestInput($this->request);
 
         $this->createAuditLog(
@@ -130,8 +130,8 @@ class User extends BaseController
         );
 
 
-        
-        
+
+        // print_r($userModel->hashPassword("11111111"));return false;
 
         $rules = [
             'email' => 'required',
@@ -143,7 +143,9 @@ class User extends BaseController
                 'validateUser' => 'Invalid login credentials provided'
             ]
         ];
+        $hash = '$2y$10$YePkPaY3llyMza1jUkzBOOO61pIVsLDyEcs6KGoFbzzSc0by13GWy';
 
+        // var_dump(password_verify($input['password'], $hash));return false;
         if (!$this->validateRequest($input, $rules, $errors)) {
             
             $this->createAuditLog(
@@ -901,4 +903,316 @@ class User extends BaseController
 
         }
     }
+
+    public function sendChangePasswordOTP()
+    {
+        helper('jwt');
+
+        try {
+
+            $input = $this->getRequestInput($this->request);
+
+            $validation = \Config\Services::validation();
+
+            $validation->setRules([
+
+                'userid'                    => 'required|numeric',
+                'request_type'              => 'required',
+            ]);
+
+            if (!$validation->run($input)) {
+
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => $validation->getErrors()
+                ]);
+
+            }
+            $user = (new UserModel())
+                ->find($input['userid']);
+           
+            if (!$user) {
+
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => 'User not found.'
+                ]);
+
+            }
+
+            $otpPayload = [
+
+                'userid'        => $user['userid'],
+                'email'         => $user['email'],
+                'name'          => $user['firstname'].' '.$user['lastname'],
+                'mobile_number' => $user['mobile_number'],
+                'otp_type'      => 'EMAIL',
+                'action'        => $input['request_type'],
+                'foreign_id'    => $input['userid']
+
+            ];
+
+            $otp = generate_otp($otpPayload);
+
+            return $this->getResponse([
+
+                'isError' => false,
+                'message' => 'OTP sent successfully.',
+                'otp'     => $otp
+
+            ]);
+
+        } catch(Exception $e){
+
+            return $this->getResponse([
+
+                'isError'=>true,
+                'message'=>$e->getMessage()
+
+            ]);
+
+        }
+
+    }
+
+    public function changePassword(
+        int $responseCode = ResponseInterface::HTTP_OK
+    ) {
+
+        helper(['jwt', 'password']);
+
+        try {
+
+            $input = $this->getRequestInput($this->request);
+
+            /*
+            |--------------------------------------------------------------------------
+            | VALIDATE REQUEST
+            |--------------------------------------------------------------------------
+            */
+
+            $rules = [
+                'userid'           => 'required|numeric',
+                'old_password'     => 'required',
+                'new_password'     => 'required|min_length[8]',
+                'confirm_password' => 'required|matches[new_password]',
+                'otp'              => 'required'
+            ];
+
+            if (!$this->validateRequest($input, $rules)) {
+
+                return $this->getResponse(
+                    [
+                        'isError' => true,
+                        'message' => current($this->validator->getErrors()),
+                        'errors'  => $this->validator->getErrors()
+                    ],
+                    ResponseInterface::HTTP_BAD_REQUEST
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | GET USER
+            |--------------------------------------------------------------------------
+            */
+
+            $userModel = new UserModel();
+
+            $user = $userModel->find($input['userid']);
+
+            if (!$user) {
+
+                return $this->getResponse(
+                    [
+                        'isError' => true,
+                        'message' => 'User not found.'
+                    ],
+                    ResponseInterface::HTTP_NOT_FOUND
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | VERIFY OLD PASSWORD
+            |--------------------------------------------------------------------------
+            */
+
+          
+            if (!password_verify($input['old_password'], $user['password'])) {
+
+                $this->createAuditLog(
+
+                    'USER',
+
+                    $user['userid'],
+
+                    'CHANGE_PASSWORD_FAILED',
+
+                    null,
+
+                    [],
+
+                    'Invalid old password.'
+
+                );
+
+                return $this->getResponse(
+                    [
+                        'isError' => true,
+                        'message' => 'Old password is incorrect.'
+                    ],
+                );
+            }
+
+
+            if (password_verify($input['new_password'], $user['password'])) {
+
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => 'New password must be different from the current password.'
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | PREVENT USING THE SAME PASSWORD
+            |--------------------------------------------------------------------------
+            */
+
+            if (password_verify($input['new_password'], $user['password'])) {
+
+                return $this->getResponse(
+                    [
+                        'isError' => true,
+                        'message' => 'New password must be different from the current password.'
+                    ],
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | VERIFY OTP
+            |--------------------------------------------------------------------------
+            */
+
+            $payload = [
+                'foreign_id' => $user['userid'],
+                'otp'        => trim($input['otp']),
+                'action'     => 'change_user_password'
+            ];
+
+            $validOTP = validate_otp($payload, 0);
+
+            if (!$validOTP) {
+
+                $this->createAuditLog(
+
+                    'USER',
+
+                    $user['userid'],
+
+                    'CHANGE_PASSWORD_OTP_FAILED',
+
+                    null,
+
+                    [
+                        'otp' => $input['otp']
+                    ],
+
+                    'Invalid or expired OTP.'
+
+                );
+
+                return $this->getResponse(
+                    [
+                        'isError' => true,
+                        'message' => 'Invalid or expired OTP.'
+                    ],
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | UPDATE PASSWORD
+            |--------------------------------------------------------------------------
+            */
+
+            $updateData = [
+                'password' => $input['new_password'],
+                'last_password_update' => date('Y-m-d H:i:s')
+            ];
+
+            $userModel->update(
+                $user['userid'],
+                $updateData
+            );
+
+
+            
+
+            /*
+            |--------------------------------------------------------------------------
+            | OPTIONAL: MARK OTP AS USED
+            |--------------------------------------------------------------------------
+            */
+
+            // delete_otp($payload);
+            // or
+            // mark_otp_as_used($payload);
+
+            /*
+            |--------------------------------------------------------------------------
+            | AUDIT LOG
+            |--------------------------------------------------------------------------
+            */
+
+            $this->createAuditLog(
+
+                'USER',
+
+                $user['userid'],
+
+                'CHANGE_PASSWORD',
+
+                [
+                    'last_password_update' =>
+                        $user['last_password_update'] ?? null
+                ],
+
+                [
+                    'last_password_update' =>
+                        $updateData['last_password_update']
+                ],
+
+                'User changed account password.'
+
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | RESPONSE
+            |--------------------------------------------------------------------------
+            */
+
+            return $this->getResponse(
+                [
+                    'isError' => false,
+                    'message' => 'Password changed successfully.'
+                ],
+                ResponseInterface::HTTP_OK
+            );
+
+        } catch (Exception $ex) {
+
+            return $this->getResponse(
+                [
+                    'isError' => true,
+                    'message' => $ex->getMessage()
+                ],
+                $responseCode
+            );
+        }
+    }
+
 }

@@ -159,8 +159,43 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
 
     $routes->get('user/get/cashier', 'API\\User::getCashiers', ['filter' => 'auth']);
     $routes->get('user/get/profile', 'API\\User::getProfile', ['filter' => 'auth']);
+    $routes->post('user/otp/change-password', 'API\\User::sendChangePasswordOTP', ['filter' => 'auth']);
+    $routes->post('user/change-password', 'API\\User::changePassword', ['filter' => 'auth']);
     $routes->put('user/update/profile', 'API\\User::updateProfile', ['filter' => 'auth']);
     $routes->post('user/update/profile-image', 'API\\User::updateProfileImage', ['filter' => 'auth']);
     $routes->get('user/get/logs', 'API\\User::getUserLoginLogs', ['filter' => 'auth']);
 
+    /*
+    |--------------------------------------------------------------------------
+    | BORROWER SALARY
+    |--------------------------------------------------------------------------
+    */
+
+    $routes->get(
+        'borrower/salary/get',
+        'API\\BorrowerSalary::get',
+        ['filter' => 'auth']
+    );
+
+    $routes->get(
+        'borrower/salary/details/(:num)',
+        'API\\BorrowerSalary::details/$1',
+        ['filter' => 'auth']
+    );
+
+    $routes->post(
+        'borrower/salary/save',
+        'API\\BorrowerSalary::save',
+        ['filter' => 'auth']
+    );
+
+    $routes->delete(
+        'borrower/salary/delete/(:num)',
+        'API\\BorrowerSalary::delete/$1',
+        ['filter' => 'auth']
+    );
+
+    $routes->post('borrower/salary/bulk-save', 'API\\BorrowerSalary::bulkSave', ['filter' => 'auth']);
+    $routes->get('borrower/salary/summary', 'API\\BorrowerSalary::summary', ['filter' => 'auth']);
+    
 }); 
