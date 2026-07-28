@@ -198,4 +198,10 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     $routes->post('borrower/salary/bulk-save', 'API\\BorrowerSalary::bulkSave', ['filter' => 'auth']);
     $routes->get('borrower/salary/summary', 'API\\BorrowerSalary::summary', ['filter' => 'auth']);
     
+
+    $routes->get(
+        'cashiervault/export',
+        'API\CashierVault::export',
+        ['filter' => 'auth']
+    );
 }); 
