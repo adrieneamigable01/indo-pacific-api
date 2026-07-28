@@ -8,6 +8,9 @@ use App\Models\CashierVaultModel;
 use CodeIgniter\HTTP\ResponseInterface;
 use Exception;
 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
 class CashierVault extends BaseController
 {
     protected $cashierVaultModel;
@@ -2822,6 +2825,695 @@ class CashierVault extends BaseController
 
         }
 
+    }
+
+    public function export()
+    {
+        /*
+        |--------------------------------------------------------------------------
+        | REQUEST
+        |--------------------------------------------------------------------------
+        */
+
+        $request = service('request');
+
+        $businessDate = $request->getGet('business_date');
+
+        $cashierId = $request->getGet('cashier_id');
+
+        $transactionType = $request->getGet('transaction_type');
+
+        $search = $request->getGet('search');
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD DATA
+        |--------------------------------------------------------------------------
+        */
+
+        $rows = $this->cashierVaultModel->getTransactionsForExport(
+
+            $search,
+
+            $cashierId,
+
+            $transactionType,
+
+            $businessDate
+
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | EMPTY RESULT
+        |--------------------------------------------------------------------------
+        */
+
+        if (empty($rows)) {
+
+            return $this->response->setJSON([
+
+                'isError' => true,
+
+                'message' => 'No transaction found.'
+
+            ]);
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE SPREADSHEET
+        |--------------------------------------------------------------------------
+        */
+
+        $spreadsheet = new Spreadsheet();
+
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->setTitle('Cashier Vault');
+
+        /*
+        |--------------------------------------------------------------------------
+        | REPORT TITLE
+        |--------------------------------------------------------------------------
+        */
+
+        $row = 1;
+
+        $sheet->mergeCells("A{$row}:L{$row}");
+        $sheet->setCellValue(
+            "A{$row}",
+            "INDO-PACIFIC LENDING CORPORATION"
+        );
+
+        $row++;
+
+        $sheet->mergeCells("A{$row}:L{$row}");
+        $sheet->setCellValue(
+            "A{$row}",
+            "Cashier Vault Transaction Report"
+        );
+
+        $row++;
+
+        $sheet->mergeCells("A{$row}:L{$row}");
+        $sheet->setCellValue(
+            "A{$row}",
+            "Generated : " . date("F d, Y h:i A")
+        );
+
+        $row++;
+
+        $sheet->mergeCells("A{$row}:L{$row}");
+        $sheet->setCellValue(
+            "A{$row}",
+            "Business Date : " .
+            (!empty($businessDate)
+                ? date("F d, Y", strtotime($businessDate))
+                : "All")
+        );
+
+        $row += 2;
+
+        /*
+        |--------------------------------------------------------------------------
+        | COLUMN HEADERS
+        |--------------------------------------------------------------------------
+        */
+
+        $headerRow = $row;
+
+        $sheet->fromArray([
+            [
+                'Business Date',
+                'Reference No',
+                'Transaction',
+                'Cashier',
+                'Created By',
+                'Borrower',
+                'Detail Transaction',
+                'Detail Amount',
+                'Main Amount',
+                'Balance Before',
+                'Balance After',
+                'Remarks'
+            ]
+        ], null, "A{$headerRow}");
+
+        /*
+        |--------------------------------------------------------------------------
+        | HEADER STYLE
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getStyle("A1:A4")
+            ->getAlignment()
+            ->setHorizontal(
+                \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER
+            );
+
+        $sheet->getStyle("A1")->getFont()
+            ->setBold(true)
+            ->setSize(18);
+
+        $sheet->getStyle("A2")->getFont()
+            ->setBold(true)
+            ->setSize(14);
+
+        $sheet->getStyle("A3:A4")->getFont()
+            ->setItalic(true)
+            ->setSize(10);
+
+        $sheet->getStyle("A{$headerRow}:L{$headerRow}")
+            ->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'color' => [
+                        'rgb' => 'FFFFFF'
+                    ]
+                ],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => [
+                        'rgb' => '0D6EFD'
+                    ]
+                ],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER
+                ]
+            ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATA START ROW
+        |--------------------------------------------------------------------------
+        */
+
+        $dataRow = $headerRow + 1;
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATA
+        |--------------------------------------------------------------------------
+        | Part 3 will populate this.
+        |--------------------------------------------------------------------------
+        */
+
+        /*
+        |--------------------------------------------------------------------------
+        | POPULATE DATA
+        |--------------------------------------------------------------------------
+        */
+
+        foreach ($rows as $row) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | BUSINESS DATE
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "A{$dataRow}",
+                !empty($row['business_date'])
+                    ? date('m/d/Y', strtotime($row['business_date']))
+                    : ''
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REFERENCE NO
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "B{$dataRow}",
+                $row['reference_no']
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | TRANSACTION TYPE
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "C{$dataRow}",
+                $row['transaction_type']
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | CASHIER
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "D{$dataRow}",
+                $row['cashier_name']
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | CREATED BY
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "E{$dataRow}",
+                $row['created_by_name']
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | BORROWER
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "F{$dataRow}",
+                $row['borrower_name']
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | DETAIL TRANSACTION
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "G{$dataRow}",
+                $row['detail_transaction_type']
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | DETAIL AMOUNT
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "H{$dataRow}",
+                (float)($row['detail_amount'] ?? 0)
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | MAIN AMOUNT
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "I{$dataRow}",
+                (float)($row['amount'] ?? 0)
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | BALANCE BEFORE
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "J{$dataRow}",
+                (float)($row['balance_before'] ?? 0)
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | BALANCE AFTER
+            |--------------------------------------------------------------------------
+            */
+
+            $sheet->setCellValue(
+                "K{$dataRow}",
+                (float)($row['balance_after'] ?? 0)
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REMARKS
+            |--------------------------------------------------------------------------
+            */
+
+            $remarks = $row['remarks'];
+
+            if (!empty($row['detail_remarks'])) {
+
+                $remarks .= "\n" . $row['detail_remarks'];
+
+            }
+
+            $sheet->setCellValue(
+                "L{$dataRow}",
+                $remarks
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | NEXT ROW
+            |--------------------------------------------------------------------------
+            */
+
+            $dataRow++;
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DOWNLOAD
+        |--------------------------------------------------------------------------
+        */
+
+        /*
+        |--------------------------------------------------------------------------
+        | LAST DATA ROW
+        |--------------------------------------------------------------------------
+        */
+
+        $lastRow = $dataRow - 1;
+
+        /*
+        |--------------------------------------------------------------------------
+        | CURRENCY FORMAT
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getStyle("H2:K{$lastRow}")
+            ->getNumberFormat()
+            ->setFormatCode('#,##0.00');
+
+        /*
+        |--------------------------------------------------------------------------
+        | AUTO SIZE COLUMNS
+        |--------------------------------------------------------------------------
+        */
+
+        foreach (range('A', 'L') as $column) {
+
+            $sheet->getColumnDimension($column)
+                ->setAutoSize(true);
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FREEZE HEADER
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->freezePane("A" . ($headerRow + 1));
+
+        /*
+        |--------------------------------------------------------------------------
+        | AUTO FILTER
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->setAutoFilter(
+            "A{$headerRow}:L{$headerRow}"
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | BORDERS
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getStyle(
+            "A{$headerRow}:L{$lastRow}"
+        )->applyFromArray([
+
+            'borders' => [
+
+                'allBorders' => [
+
+                    'borderStyle' =>
+                        \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+
+                ]
+
+            ]
+
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | ALIGNMENT
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getStyle(
+            "A{$headerRow}:L{$lastRow}"
+        )->getAlignment()
+            ->setVertical(
+                \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | WRAP REMARKS
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getStyle(
+            "L{$headerRow}:L{$lastRow}"
+        )->getAlignment()
+            ->setWrapText(true);
+
+        /*
+        |--------------------------------------------------------------------------
+        | CENTER SOME COLUMNS
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getStyle(
+            "A{$headerRow}:G{$lastRow}"
+        )->getAlignment()
+            ->setHorizontal(
+                \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | RIGHT ALIGN AMOUNTS
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getStyle(
+            "H{$headerRow}:K{$lastRow}"
+        )->getAlignment()
+            ->setHorizontal(
+                \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | ROW HEIGHT
+        |--------------------------------------------------------------------------
+        */
+
+        for ($i = $headerRow; $i <= $lastRow; $i++) {
+
+            $sheet->getRowDimension($i)
+                ->setRowHeight(-1);
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | REPORT FOOTER (TOTALS)
+        |--------------------------------------------------------------------------
+        */
+
+        $totalDetailAmount = 0;
+        $totalMainAmount = 0;
+
+        foreach ($rows as $item) {
+
+            $totalDetailAmount += (float)($item['detail_amount'] ?? 0);
+
+            $totalMainAmount += (float)($item['amount'] ?? 0);
+
+        }
+
+        $footerRow = $lastRow + 2;
+
+        $sheet->mergeCells("A{$footerRow}:G{$footerRow}");
+
+        $sheet->setCellValue(
+            "A{$footerRow}",
+            "TOTAL"
+        );
+
+        $sheet->setCellValue(
+            "H{$footerRow}",
+            $totalDetailAmount
+        );
+
+        $sheet->setCellValue(
+            "I{$footerRow}",
+            $totalMainAmount
+        );
+
+        $sheet->getStyle("A{$footerRow}:I{$footerRow}")
+            ->applyFromArray([
+
+                'font' => [
+
+                    'bold' => true
+
+                ],
+
+                'fill' => [
+
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+
+                    'startColor' => [
+
+                        'rgb' => 'E9ECEF'
+
+                    ]
+
+                ]
+
+            ]);
+
+        $sheet->getStyle("H{$footerRow}:I{$footerRow}")
+            ->getNumberFormat()
+            ->setFormatCode('#,##0.00');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ALTERNATE ROW COLORS
+        |--------------------------------------------------------------------------
+        */
+
+        for ($r = $headerRow + 1; $r <= $lastRow; $r++) {
+
+            if (($r % 2) == 0) {
+
+                $sheet->getStyle("A{$r}:L{$r}")
+                    ->getFill()
+                    ->setFillType(
+                        \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID
+                    )
+                    ->getStartColor()
+                    ->setRGB('F8F9FA');
+
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PAGE SETUP
+        |--------------------------------------------------------------------------
+        */
+
+        $pageSetup = $sheet->getPageSetup();
+
+        $pageSetup->setOrientation(
+            \PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE
+        );
+
+        $pageSetup->setPaperSize(
+            \PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4
+        );
+
+        $pageSetup->setFitToWidth(1);
+
+        $pageSetup->setFitToHeight(0);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MARGINS
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getPageMargins()
+            ->setTop(0.5)
+            ->setRight(0.3)
+            ->setLeft(0.3)
+            ->setBottom(0.5);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | HEADER / FOOTER
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getHeaderFooter()
+            ->setOddHeader('&C&BINDO-PACIFIC LENDING CORPORATION');
+
+        $sheet->getHeaderFooter()
+            ->setOddFooter('&LGenerated by Cashier Vault&RPage &P of &N');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACTIVE CELL
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->setSelectedCell('A1');
+
+        $fileName =
+
+            'Cashier_Vault_' .
+
+            date('Ymd_His') .
+
+            '.xlsx';
+
+        return $this->response
+
+            ->setHeader(
+
+                'Content-Type',
+
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+            )
+
+            ->setHeader(
+
+                'Content-Disposition',
+
+                'attachment; filename="' . $fileName . '"'
+
+            )
+
+            ->setHeader(
+
+                'Cache-Control',
+
+                'max-age=0'
+
+            )
+
+            ->setBody(
+
+                (function () use ($spreadsheet) {
+
+                    ob_start();
+
+                    $writer = new Xlsx($spreadsheet);
+
+                    $writer->save('php://output');
+
+                    return ob_get_clean();
+
+                })()
+
+            );
     }
 
     
