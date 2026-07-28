@@ -18,10 +18,11 @@
     ],
     "require": {
         "php": "^7.3 || ^8.0 || ^8.1",
-        "codeigniter4/framework": "^4",
-        "firebase/php-jwt": "6.0",
-        "kint-php/kint": "^5.0",
-        "phpmailer/phpmailer": "^6.10"
+        "codeigniter4/framework": "4.6.3",
+        "firebase/php-jwt": "^6.11",
+        "kint-php/kint": "6.0",
+        "phpmailer/phpmailer": "^6.10",
+        "phpoffice/phpspreadsheet": "^5.8"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9",
