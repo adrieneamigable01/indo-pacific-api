@@ -3119,6 +3119,7 @@ class CashierVaultModel extends Model
 
             }
 
+          
             /*
             |--------------------------------------------------------------------------
             | BUSINESS DATE
@@ -3129,25 +3130,7 @@ class CashierVaultModel extends Model
 
                 $builder->where(
 
-                    'cv.business_date',
-
-                    $businessDate
-
-                );
-
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | BUSINESS DATE
-            |--------------------------------------------------------------------------
-            */
-
-            if (!empty($businessDate)) {
-
-                $builder->where(
-
-                    'cv.business_date',
+                    'DATE(cv.business_date)',
 
                     $businessDate
 

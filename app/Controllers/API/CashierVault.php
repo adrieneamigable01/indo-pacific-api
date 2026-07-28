@@ -3527,7 +3527,7 @@ class CashierVault extends BaseController
         $orderColumn = 'cashier_transaction_id';
         $orderDir = 'DESC';
 
-        $search = $request->getGet('search')['value'] ?? '';
+        $search = $request->getGet('search') ?? '';
 
         $borrowerId = (int) $request->getGet('borrower_id');
 
