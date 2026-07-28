@@ -2785,4 +2785,943 @@ class CashierVaultModel extends Model
                 ->get()
                 ->getResultArray();
     }
+
+    public function getBorrowerTransactions(
+
+            $search = '',
+
+            $cashierTransactionId = null,
+
+            $borrowerId = null,
+
+            $businessDate = '',
+
+            $transactionType = '',
+
+            $dateFrom = '',
+
+            $dateTo = '',
+
+            $start = 0,
+
+            $length = 10,
+
+            $orderColumn = 'cashier_transaction_id',
+
+            $orderDir = 'DESC'
+
+        )
+        {
+
+            /*
+            |--------------------------------------------------------------------------
+            | ORDERABLE COLUMNS
+            |--------------------------------------------------------------------------
+            */
+
+            $columns = [
+
+                'cashier_transaction_id' => 'cv.cashier_transaction_id',
+
+                'business_date'          => 'cv.business_date',
+
+                'reference_no'           => 'cv.reference_no',
+
+                'transaction_type'       => 'cv.transaction_type',
+
+                'amount'                 => 'cv.amount',
+
+                'balance_before'         => 'cv.balance_before',
+
+                'balance_after'          => 'cv.balance_after',
+
+                'created_by_name'        => 'u.lastname',
+
+                'remarks'                => 'cv.remarks',
+
+            ];
+
+            $orderBy = $columns[$orderColumn] ?? 'cv.cashier_transaction_id';
+
+          
+            /*
+            |--------------------------------------------------------------------------
+            | QUERY
+            |--------------------------------------------------------------------------
+            */
+
+            $builder =
+
+                $this->db
+
+                ->table('cashier_vault cv')
+
+                ->select("
+
+                    cv.*,
+
+                    CONCAT(
+
+                        IFNULL(c.firstname,''),
+
+                        ' ',
+
+                        IFNULL(c.lastname,'')
+
+                    ) AS cashier_name,
+
+                    CONCAT(
+
+                        IFNULL(u.firstname,''),
+
+                        ' ',
+
+                        IFNULL(u.lastname,'')
+
+                    ) AS created_by_name,
+
+                    CONCAT(
+
+                        cv.amount,
+
+                        ' (',
+
+                        cv.balance_after,
+
+                        ')'
+
+                    ) AS amount_with_balance,
+
+                    CASE
+
+                        WHEN cv.borrower_id IS NOT NULL THEN
+
+                            CONCAT(
+
+                                cv.remarks,
+
+                                ' - ',
+
+                                IFNULL(b.last_name,''),
+
+                                ', ',
+
+                                IFNULL(b.first_name,''),
+
+                                CASE
+
+                                    WHEN b.middle_name IS NOT NULL
+                                    AND b.middle_name <> ''
+
+                                    THEN CONCAT(' ', b.middle_name)
+
+                                    ELSE ''
+
+                                END
+
+                            )
+
+                        ELSE
+
+                            cv.remarks
+
+                    END AS remarks_display
+
+                ")
+
+                ->join(
+
+                    'borrowers b',
+
+                    'b.borrower_id = cv.borrower_id',
+
+                    'left'
+
+                )
+
+                ->join(
+
+                    'users c',
+
+                    'c.userid = cv.cashier_id',
+
+                    'left'
+
+                )
+
+                ->join(
+
+                    'users u',
+
+                    'u.userid = cv.created_by',
+
+                    'left'
+
+                )
+
+                ->where(
+
+                    'cv.is_active',
+
+                    1
+
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | BORROWER
+            |--------------------------------------------------------------------------
+            */
+
+            if (!empty($borrowerId)) {
+
+                $builder->where(
+
+                    'cv.borrower_id',
+
+                    $borrowerId
+
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | SEARCH
+            |--------------------------------------------------------------------------
+            */
+
+            if (!empty($search)) {
+
+                $search = trim($search);
+
+                $numericSearch = str_replace(
+                    ['₱', ',', ' '],
+                    '',
+                    $search
+                );
+
+                $builder
+
+                    ->groupStart()
+
+                    ->like('cv.reference_no', $search)
+
+                    ->orLike('cv.transaction_type', $search)
+
+                    ->orLike('cv.remarks', $search)
+
+                    ->orLike('u.firstname', $search)
+
+                    ->orLike('u.lastname', $search)
+
+                    ->orLike('b.first_name', $search)
+
+                    ->orLike('b.middle_name', $search)
+
+                    ->orLike('b.last_name', $search);
+
+                $escapedSearch = $this->db->escapeLikeString($search);
+
+                $builder->orWhere(
+
+                    "CONCAT(b.first_name, ' ', b.last_name) LIKE '%{$escapedSearch}%'",
+
+                    null,
+
+                    false
+
+                );
+
+                $builder->orWhere(
+
+                    "CONCAT(b.last_name, ', ', b.first_name) LIKE '%{$escapedSearch}%'",
+
+                    null,
+
+                    false
+
+                );
+
+                $builder->orWhere(
+
+                    "CONCAT(b.first_name, ' ', b.middle_name, ' ', b.last_name) LIKE '%{$escapedSearch}%'",
+
+                    null,
+
+                    false
+
+                );
+
+                if (is_numeric($numericSearch)) {
+
+                    $builder
+
+                        ->orWhere('cv.cashier_transaction_id', (int)$numericSearch)
+
+                        ->orWhere('cv.amount', (float)$numericSearch)
+
+                        ->orWhere('cv.balance_before', (float)$numericSearch)
+
+                        ->orWhere('cv.balance_after', (float)$numericSearch);
+
+                }
+
+                if (strtotime($search) !== false) {
+
+                    $builder->orWhere(
+
+                        'DATE(cv.created_at)',
+
+                        date('Y-m-d', strtotime($search))
+
+                    );
+
+                }
+
+                $builder->groupEnd();
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | TRANSACTION ID
+            |--------------------------------------------------------------------------
+            */
+
+            if (!empty($cashierTransactionId)) {
+
+                $builder->where(
+
+                    'cv.cashier_transaction_id',
+
+                    $cashierTransactionId
+
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | TRANSACTION TYPE
+            |--------------------------------------------------------------------------
+            */
+
+            if (!empty($transactionType)) {
+
+                $builder->where(
+
+                    'cv.transaction_type',
+
+                    strtoupper($transactionType)
+
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | BUSINESS DATE
+            |--------------------------------------------------------------------------
+            */
+
+            if (!empty($businessDate)) {
+
+                $builder->where(
+
+                    'cv.business_date',
+
+                    $businessDate
+
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | BUSINESS DATE
+            |--------------------------------------------------------------------------
+            */
+
+            if (!empty($businessDate)) {
+
+                $builder->where(
+
+                    'cv.business_date',
+
+                    $businessDate
+
+                );
+
+            }
+
+          
+
+            /*
+            |--------------------------------------------------------------------------
+            | ORDER
+            |--------------------------------------------------------------------------
+            */
+
+            $builder->orderBy(
+
+                $orderBy,
+
+                $orderDir
+
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | LIMIT
+            |--------------------------------------------------------------------------
+            */
+
+            if ($length != -1) {
+
+                $builder->limit(
+
+                    (int)$length,
+
+                    (int)$start
+
+                );
+
+            }
+                
+            $transactions = $builder->get()->getResultArray();
+
+            /*
+            |--------------------------------------------------------------------------
+            | LOAD DETAILS
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($transactions as &$transaction) {
+
+                $transaction['details'] =
+
+                    $this->db
+
+                    ->table('cashier_vault_details')
+
+                    ->where(
+
+                        'cashier_transaction_id',
+
+                        $transaction['cashier_transaction_id']
+
+                    )
+
+                    ->orderBy(
+
+                        'cashier_vault_detail_id',
+
+                        'ASC'
+
+                    )
+
+                    ->get()
+
+                    ->getResultArray();
+
+                $dailyClose =
+
+                    $this->db
+
+                    ->table('cashier_daily_close')
+
+                    ->where(
+
+                        'cashier_daily_close_id',
+
+                        $transaction['cashier_daily_close_id'] ?? 0
+
+                    )
+
+                    ->get()
+
+                    ->getRowArray();
+
+                if (!empty($dailyClose)) {
+
+                    $transaction['daily_close'] = $dailyClose;
+
+                    $transaction['denominations'] =
+
+                        $this->db
+
+                        ->table('cashier_daily_close_denominations')
+
+                        ->where(
+
+                            'cashier_daily_close_id',
+
+                            $dailyClose['cashier_daily_close_id']
+
+                        )
+
+                        ->orderBy(
+
+                            'denomination',
+
+                            'DESC'
+
+                        )
+
+                        ->get()
+
+                        ->getResultArray();
+
+                } else {
+
+                    $transaction['daily_close'] = [];
+
+                    $transaction['denominations'] = [];
+
+                }
+
+                if (!empty($transaction['manager_transaction_id'])) {
+
+                    $transaction['manager_transaction'] =
+
+                        $this->db
+
+                        ->table('manager_vault')
+
+                        ->select("
+
+                            manager_transaction_id,
+
+                            transaction_type,
+
+                            reference_no,
+
+                            amount,
+
+                            status,
+
+                            approved_by,
+
+                            approved_at
+
+                        ")
+
+                        ->where(
+
+                            'manager_transaction_id',
+
+                            $transaction['manager_transaction_id']
+
+                        )
+
+                        ->get()
+
+                        ->getRowArray();
+
+                } else {
+
+                    $transaction['manager_transaction'] = [];
+
+                }
+
+            }
+
+            unset($transaction);
+
+            return $transactions;
+
+        }
+    public function getBorrowerTransactionSummary($borrowerId)
+    {
+        return $this->db
+            ->table('cashier_vault')
+            ->select("
+                COUNT(*) total_transactions,
+
+                SUM(
+                    CASE
+                        WHEN transaction_type='PAYMENT'
+                        THEN amount
+                        ELSE 0
+                    END
+                ) total_payments,
+
+                SUM(
+                    CASE
+                        WHEN transaction_type='LOAN_RELEASE'
+                        THEN amount
+                        ELSE 0
+                    END
+                ) total_release,
+
+                SUM(
+                    CASE
+                        WHEN transaction_type='SETTLEMENT'
+                        THEN amount
+                        ELSE 0
+                    END
+                ) total_settlement,
+
+                MAX(business_date) last_transaction
+            ")
+            ->where([
+                'borrower_id'=>$borrowerId,
+                'is_active'=>1
+            ])
+            ->get()
+            ->getRowArray();
+    }
+
+    public function countBorrowerTransactions(
+
+        $borrowerId = null,
+
+        $dateFrom = '',
+
+        $dateTo = ''
+
+    )
+    {
+
+        $builder =
+
+            $this->db
+
+            ->table('cashier_vault cv')
+
+            ->where(
+
+                'cv.is_active',
+
+                1
+
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | BORROWER
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($borrowerId)) {
+
+            $builder->where(
+
+                'cv.borrower_id',
+
+                $borrowerId
+
+            );
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DEFAULT DATES
+        |--------------------------------------------------------------------------
+        */
+
+        if (empty($dateFrom) && empty($dateTo)) {
+
+            $dateFrom = date('Y-m-d');
+
+            $dateTo = date('Y-m-d');
+
+        } elseif (!empty($dateFrom) && empty($dateTo)) {
+
+            $dateTo = $dateFrom;
+
+        } elseif (empty($dateFrom) && !empty($dateTo)) {
+
+            $dateFrom = $dateTo;
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATE FILTER
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($dateFrom)) {
+
+            $builder->where(
+
+                'DATE(cv.created_at) >=',
+
+                $dateFrom
+
+            );
+
+        }
+
+        if (!empty($dateTo)) {
+
+            $builder->where(
+
+                'DATE(cv.created_at) <=',
+
+                $dateTo
+
+            );
+
+        }
+
+        return $builder->countAllResults();
+
+    }
+
+    public function countFilteredBorrowerTransactions(
+
+        $search = '',
+
+        $cashierTransactionId = null,
+
+        $borrowerId = null,
+
+        $transactionType = '',
+
+        $dateFrom = '',
+
+        $dateTo = ''
+
+    )
+    {
+
+        $builder =
+
+            $this->db
+
+            ->table('cashier_vault cv')
+
+            ->join(
+
+                'borrowers b',
+
+                'b.borrower_id = cv.borrower_id',
+
+                'left'
+
+            )
+
+            ->join(
+
+                'users c',
+
+                'c.userid = cv.cashier_id',
+
+                'left'
+
+            )
+
+            ->join(
+
+                'users u',
+
+                'u.userid = cv.created_by',
+
+                'left'
+
+            )
+
+            ->where(
+
+                'cv.is_active',
+
+                1
+
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | BORROWER
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($borrowerId)) {
+
+            $builder->where(
+
+                'cv.borrower_id',
+
+                $borrowerId
+
+            );
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SEARCH
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($search)) {
+
+            $search = trim($search);
+
+            $numericSearch = str_replace(
+                ['₱', ',', ' '],
+                '',
+                $search
+            );
+
+            $builder
+
+                ->groupStart()
+
+                ->like('cv.reference_no', $search)
+
+                ->orLike('cv.transaction_type', $search)
+
+                ->orLike('cv.remarks', $search)
+
+                ->orLike('u.firstname', $search)
+
+                ->orLike('u.lastname', $search)
+
+                ->orLike('b.first_name', $search)
+
+                ->orLike('b.middle_name', $search)
+
+                ->orLike('b.last_name', $search);
+
+            $escapedSearch = $this->db->escapeLikeString($search);
+
+            $builder->orWhere(
+                "CONCAT(b.first_name, ' ', b.last_name) LIKE '%{$escapedSearch}%'",
+                null,
+                false
+            );
+
+            $builder->orWhere(
+                "CONCAT(b.last_name, ', ', b.first_name) LIKE '%{$escapedSearch}%'",
+                null,
+                false
+            );
+
+            $builder->orWhere(
+                "CONCAT(b.first_name, ' ', b.middle_name, ' ', b.last_name) LIKE '%{$escapedSearch}%'",
+                null,
+                false
+            );
+
+            if (is_numeric($numericSearch)) {
+
+                $builder
+                    ->orWhere('cv.cashier_transaction_id', (int)$numericSearch)
+                    ->orWhere('cv.amount', (float)$numericSearch)
+                    ->orWhere('cv.balance_before', (float)$numericSearch)
+                    ->orWhere('cv.balance_after', (float)$numericSearch);
+
+            }
+
+            if (strtotime($search) !== false) {
+
+                $builder->orWhere(
+
+                    'DATE(cv.created_at)',
+
+                    date('Y-m-d', strtotime($search))
+
+                );
+
+            }
+
+            $builder->groupEnd();
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | TRANSACTION ID
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($cashierTransactionId)) {
+
+            $builder->where(
+
+                'cv.cashier_transaction_id',
+
+                $cashierTransactionId
+
+            );
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | TRANSACTION TYPE
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($transactionType)) {
+
+            $builder->where(
+
+                'cv.transaction_type',
+
+                strtoupper($transactionType)
+
+            );
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DEFAULT DATES
+        |--------------------------------------------------------------------------
+        */
+
+        if (empty($dateFrom) && empty($dateTo)) {
+
+            $dateFrom = date('Y-m-d');
+
+            $dateTo = date('Y-m-d');
+
+        } elseif (!empty($dateFrom) && empty($dateTo)) {
+
+            $dateTo = $dateFrom;
+
+        } elseif (empty($dateFrom) && !empty($dateTo)) {
+
+            $dateFrom = $dateTo;
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATE FILTER
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($dateFrom)) {
+
+            $builder->where(
+
+                'DATE(cv.created_at) >=',
+
+                $dateFrom
+
+            );
+
+        }
+
+        if (!empty($dateTo)) {
+
+            $builder->where(
+
+                'DATE(cv.created_at) <=',
+
+                $dateTo
+
+            );
+
+        }
+
+        return $builder->countAllResults();
+
+    }
 }

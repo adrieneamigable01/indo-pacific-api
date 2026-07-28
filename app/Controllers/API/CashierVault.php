@@ -3516,6 +3516,88 @@ class CashierVault extends BaseController
             );
     }
 
-    
+    public function getBorrowerCashierTransactions()
+    {
+        $request = service('request');
+
+        $draw   = (int) $request->getGet('draw');
+        $start  = (int) $request->getGet('start');
+        $length = (int) $request->getGet('length');
+
+        $orderColumn = 'cashier_transaction_id';
+        $orderDir = 'DESC';
+
+        $search = $request->getGet('search')['value'] ?? '';
+
+        $borrowerId = (int) $request->getGet('borrower_id');
+
+        $transactionType = $request->getGet('transaction_type');
+
+        $businessDate = $request->getGet('business_date');
+
+        $dateFrom = $businessDate;
+        $dateTo   = $businessDate;
+
+        $model = new CashierVaultModel();
+
+        $data = $model->getBorrowerTransactions(
+
+            $search,
+
+            null,
+
+            $borrowerId,
+
+            $businessDate,
+
+            $transactionType,
+
+            $dateFrom,
+
+            $dateTo,
+
+            $start,
+
+            $length,
+
+            $orderColumn,
+
+            $orderDir
+
+        );
+
+        return $this->response->setJSON([
+
+            "draw" => $draw,
+
+            "recordsTotal" => $model->countBorrowerTransactions(
+                $borrowerId,
+                $dateFrom,
+                $dateTo
+            ),
+
+            "recordsFiltered" => $model->countFilteredBorrowerTransactions(
+                $search,
+                $borrowerId,
+                $transactionType,
+                $dateFrom,
+                $dateTo
+            ),
+
+            "data" => $data
+
+        ]);
+    }
+
+    public function getBorrowerCashierSummary()
+    {
+        $borrowerId = $this->request->getGet('borrower_id');
+
+        $model = new CashierVaultModel();
+
+        return $this->response->setJSON(
+            $model->getBorrowerTransactionSummary($borrowerId)
+        );
+    }
 
 }

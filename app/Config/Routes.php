@@ -204,4 +204,9 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         'API\CashierVault::export',
         ['filter' => 'auth']
     );
+    $routes->get(
+        'borrower/cashier-transaction',
+        'API\CashierVault::getBorrowerCashierTransactions',
+        ['filter' => 'auth']
+    );
 }); 
