@@ -702,9 +702,11 @@ class Loan extends BaseController
         int $loanProductId,
         float $loanAmount,
         int $loanTerms,
-        string $releaseDate = null
+        string $releaseDate = null,
+        float $monthlyInterestDeduction = null,
     )
     {
+
         $releaseDate = $releaseDate ?? date('Y-m-d');
 
         $db->table('loan_schedule')
@@ -957,6 +959,41 @@ class Loan extends BaseController
                 }
 
                 break;
+            case 5:
+
+                $monthlyPrincipal = 0;
+                $interestDeduction = 0;
+
+                
+
+                $balance = $loanAmount;
+
+                for ($i = 1; $i <= $loanTerms; $i++) {
+
+                    $interestDeduction = ($loanAmount * .02 ) * 12;
+
+                    $balance -= $monthlyPrincipal;
+
+                    $result = $db->table('loan_schedule')->insert([
+                        'loan_id' => $loanId,
+                        'due_date' => date(
+                            'Y-m-d',
+                            strtotime("+{$i} month", strtotime($releaseDate))
+                        ),
+                        'principal_due' => round($monthlyPrincipal, 2),
+                        'interest_due' => $interestDeduction,
+                        'balance' => max(round($balance, 2), 0),
+                        'status' => 'UNPAID'
+                    ]);
+
+                    if (!$result) {
+                        throw new \Exception(
+                            'Failed generating schedule.'
+                        );
+                    }
+                }
+
+                break;
         }
 
         return true;
@@ -1064,6 +1101,9 @@ class Loan extends BaseController
                 'approved_processing_fee' =>
                     $input['approved_processing_fee'],
 
+                'monthly_interest_deduction' =>
+                    $input['monthly_interest_deduction'],
+
                 'release_date' =>
                     $input['release_date']
 
@@ -1114,8 +1154,8 @@ class Loan extends BaseController
 
                 (int)$input['loan_terms'],
 
-                $input['release_date']
-
+                $input['release_date'],
+                $input['monthly_interest_deduction']
             );
 
             /*
@@ -1805,7 +1845,6 @@ class Loan extends BaseController
         try {
 
             $input = $this->getRequestInput($this->request);
-
             $rules = [
                 'borrower_id' => 'required|numeric',
                 'loan_product_id' => 'required|numeric',
@@ -1939,7 +1978,9 @@ class Loan extends BaseController
                 $loanId,
                 (int)$input['loan_product_id'],
                 (float)$input['loan_amount'],
-                (int)$input['loan_terms']
+                (int)$input['loan_terms'],
+                null,
+                $input['monthly_interest_deduction']
             );
 
             if ($db->transStatus() === false) {
@@ -2306,7 +2347,9 @@ class Loan extends BaseController
                 $loanId,
                 (int)$input['loan_product_id'],
                 (float)$input['loan_amount'],
-                (int)$input['loan_terms']
+                (int)$input['loan_terms'],
+                
+
             );
 
             if ($db->transStatus() === false) {
@@ -4764,7 +4807,8 @@ class Loan extends BaseController
                 $loanId,
                 (int)$input['loan_product_id'],
                 (float)$input['loan_amount'],
-                (int)$input['loan_terms']
+                (int)$input['loan_terms'],
+                
             );
 
             /*
