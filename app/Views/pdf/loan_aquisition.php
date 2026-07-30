@@ -309,7 +309,7 @@
    </head>
          
     
-    <body style="padding-left:35px;padding-right:35px;font-size:17px;">
+    <body style="padding-left:20px;padding-right:20px;font-size:15px;">
         <br><br><br>
         <div style="text-align:right">
             <b>
