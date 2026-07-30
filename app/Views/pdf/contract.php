@@ -1060,7 +1060,7 @@ if (file_exists($path)) {
                             $term = 10;
                         }
                         if(strtoupper($loan['product_name']) == "INTEREST ONLY"){
-                            $term = 10;
+                            $term = 12;
                         }
                         for ($i = 1; $i <= $term ; $i++) {
                             
@@ -1117,7 +1117,28 @@ if (file_exists($path)) {
                                 echo "<td>".$yearlyInterest."</td>";
                                 echo "<td>".$balance."</td>";
                                 echo "</tr>";
-                            }else{
+                            }
+                            else if(strtoupper($loan['product_name']) == "BRACKET LOAN ( CASE TO CASE )"){
+                               
+                                $principal = $loan['loan_amount'];
+                                
+                                $interest = (float)($principal) * ((float)($loan['approved_interest_rate']) / 100);
+                        
+                               
+                                $date = date("Y-m-d");
+
+                                $yearlyInterest = ($interest * 12);
+
+                                // $yearlyInterest = number_format($yearlyInterest);
+                                echo "<tr>";
+                                echo "<td>".$i."</td>";
+                                echo "<td>0</td>";
+                                echo "<td>".number_format($yearlyInterest, 2, '.', '')."</td>";
+                                echo "<td>".$yearlyInterest."</td>";
+                                echo "<td>".$balance."</td>";
+                                echo "</tr>";
+                            }
+                            else{
 
                                 $principal = $amountData / 12;
                                 $interest = 0;

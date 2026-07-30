@@ -249,6 +249,55 @@
        return $rettxt;
    }
    
+function percentageToWords($number)
+{
+    $ones = array(
+        0 => "ZERO",
+        1 => "ONE",
+        2 => "TWO",
+        3 => "THREE",
+        4 => "FOUR",
+        5 => "FIVE",
+        6 => "SIX",
+        7 => "SEVEN",
+        8 => "EIGHT",
+        9 => "NINE"
+    );
+       
+    // Convert number to string
+    $number = trim((string)$number);
+    
+    // If decimal exists
+    if (strpos($number, '.') !== false) {
+
+        $parts = explode('.', $number);
+
+        $wholePart = intval($parts[0]);
+        $decimalPart = $parts[1];
+          
+        // Whole number wording
+        $result = trim(toText($wholePart));
+
+        // Add POINT
+        $result .= " POINT";
+         
+        // Decimal digits one by one
+        for ($i = 0; $i < strlen($decimalPart); $i++) {
+
+            $digit = $decimalPart[$i];
+
+            if (is_numeric($digit)) {
+                $result .= " " . $ones[intval($digit)];
+            }
+        }
+        
+        return strtoupper(trim($result));
+    } else {
+
+        return strtoupper(trim(toText(intval($number))));
+    }
+}
+
    ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -425,4 +474,224 @@
             </table>
         </div>
     </body>
+     <body style="padding-left:35px;padding-right:35px;font-size:13px;">
+            <br><br><br>
+            <div style="text-align:right">
+                <b style="margin-right:38px;">
+                    <span>ANNEX “B”</span>
+                </b><br>
+                <b>
+                    <span>SCHEDULE OF PAYMENTS</span>
+                </b>
+            </div>
+            <div class="text-center" style="font-weight:bold;">
+                REPAYMENT TERMS <br>
+                ESSENTIAL PROVISION
+            </div>
+            <br>
+            <div>
+                <table style="width:100%;" id="tbl-essential">
+                    <tbody>
+                        <tr>
+                            <td style="width:50%;">LENDER</td>
+                            <td style="width:50%;">INDO - PACIFIC LENDING CORPORATION</td>
+                        </tr>
+                        <tr>
+                            <td style="width:50%;">BORROWER</td>
+                            <td style="width:50%;"><?php echo $loan['first_name'] . ' ' . $loan['middle_name'] . ' ' . $loan['last_name'] ?></b></td>
+                        </tr>
+                        <tr>
+                            <td style="width:50%;">BORROWER`S COMPLETE RESIDENCE ADDRESS</td>
+                            <td style="width:50%;"><?php echo $loan['home_address'] ?></td>
+                        </tr>
+                        <tr>
+                            <td style="width:50%;">PRINCIPAL LOAN AMOUNT</td>
+                            <td style="width:50%;"><?php echo number_format($loan['loan_amount'], 2, ".", ",") ?></td>
+                        </tr>
+                        <tr>
+                            <td style="width:50%;">SERVICE CHARGE</td>
+                            <td style="width:50%;">0% of Principal Amount to be deducted by the LENDER from the proceeds.</td>
+                        </tr>
+                        <tr>
+                            <td style="width:50%;">INTEREST PAYMENT</td>
+                            <td style="width:50%;">(A) <?php echo ucwords(percentageToWords($loan['approved_interest_rate'])).' '.$loan['approved_interest_rate'].'%' ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <br>
+            <table style="width:100%;text-align:center">
+                <tr>
+                    <th>#</th>
+                    <th>PRINCIPAL</th>
+                    <th>INTEREST</th>
+                    <th>TOTAL PAYMENT</th>
+                    <th>BALANCE</th>
+                </tr>
+                
+                    <?php
+                    
+                        $total = $loan['loan_amount'];
+                        $balance =  $loan['loan_amount']; 
+                        $term = 12;
+                        $totalpayment = 0;
+                        $date = date("Y-m-d");
+                        if(strtoupper($loan['product_name']) == "LONG TERM LOAN"){
+                            $term = 10;
+                        }
+                        if(strtoupper($loan['product_name']) == "INTEREST ONLY"){
+                            $term = 10;
+                        }
+                        for ($i = 1; $i <= $term ; $i++) {
+                            
+                            if($i > 1){
+                                $date = date("Y-m-d",strtotime('+'.(($i - 1) * 12).' month'.$date));
+                            }else{
+                                $date = date("Y-m-d",strtotime($date));
+                            }
+                            
+                            $principal = 0;
+                            $interest = 0;
+                            if(strtoupper($loan['product_name']) == "LONG TERM LOAN"){
+                               
+                                $principal = $loan['loan_amount'];
+                                
+                                $interest = (float)($principal) * .01;
+                                $principal = $principal / ($term * 12);
+                               
+                                $yearlyCollection = ((float)($interest) + (float)($principal)) * 12;
+                                $yearlyCollection = number_format($yearlyCollection , 2, '.', '');
+                                $date = date("Y-m-d");
+
+                                $yearlyInterest = ($interest * 120) / 7;
+
+                                $sevenYearsPrincipal = $yearlyCollection - $yearlyInterest;
+                               
+
+                                $balance = floatval($balance) - ($i > 7 ? (floatval($yearlyCollection)) : (floatval($sevenYearsPrincipal)));
+                                $balance = $balance < 1 ? 0 : number_format((float)($balance), 2, '.', '');
+                                $sevenYearsPrincipal = number_format($sevenYearsPrincipal);
+                                echo "<tr>";
+                                echo "<td>".$i."</td>";
+                                echo "<td>".($i > 7 ? ($yearlyCollection) : ($sevenYearsPrincipal))."</td>";
+                                echo "<td>".($i > 7 ? 0 : number_format($yearlyInterest, 2, '.', ''))."</td>";
+                                echo "<td>".$yearlyCollection."</td>";
+                                echo "<td>".$balance."</td>";
+                                echo "</tr>";
+                            }else if(strtoupper($loan['product_name']) == "INTEREST ONLY"){
+                               
+                                $principal = $loan['loan_amount'];
+                                
+                                $interest = (float)($principal) * ((float)($loan['approved_interest_rate']) / 100);
+                        
+                               
+                                $date = date("Y-m-d");
+
+                                $yearlyInterest = ($interest * 12);
+
+                                // $yearlyInterest = number_format($yearlyInterest);
+                                echo "<tr>";
+                                echo "<td>".$i."</td>";
+                                echo "<td>0</td>";
+                                echo "<td>".number_format($yearlyInterest, 2, '.', '')."</td>";
+                                echo "<td>".$yearlyInterest."</td>";
+                                echo "<td>".$balance."</td>";
+                                echo "</tr>";
+                            }else if(strtoupper($loan['product_name']) == "BRACKET LOAN ( CASE TO CASE )"){
+                               
+                                $principal = $loan['loan_amount'];
+                                
+                                $interest = (float)($principal) * ((float)($loan['approved_interest_rate']) / 100);
+                        
+                               
+                                $date = date("Y-m-d");
+
+                                $yearlyInterest = ($interest * 12);
+
+                                // $yearlyInterest = number_format($yearlyInterest);
+                                echo "<tr>";
+                                echo "<td>".$i."</td>";
+                                echo "<td>0</td>";
+                                echo "<td>".number_format($yearlyInterest, 2, '.', '')."</td>";
+                                echo "<td>".$yearlyInterest."</td>";
+                                echo "<td>".$balance."</td>";
+                                echo "</tr>";
+                            }
+                            else{
+
+                                $principal = $loan['loan_amount'] / 12;
+                                $interest = 0;
+                                $totalpayment = $principal;
+                                $balance = floatval($balance) - floatval($principal);
+
+                                $principal = number_format($principal, 2, ".", ",");
+                                $interest = number_format($interest, 2, ".", ",");
+                                $totalpayment = number_format($totalpayment, 2, ".", ",");
+                                $balance = $balance < 0 ? 0 : number_format((float)($balance), 2, '.', '');
+
+                                echo "<tr>";
+                                echo "<td>".$i."</td>";
+                                echo "<td>".$principal."</td>";
+                                echo "<td>".$interest."</td>";
+                                echo "<td>".$totalpayment."</td>";
+                                echo "<td>".$balance."</td>";
+                                echo "</tr>";
+                            }
+                           
+                        }
+                    ?>
+                    
+                
+            </table>
+            <br>
+                <br>
+                <div class="text-left">
+                    <b>Approved by:</b><br>
+                </div>
+                <!-- <br> -->
+                <table style="width:100%;">
+                    <tr class="text-center">
+                        <td>
+                            <b>INDO - PACIFIC LENDING CORPORATION</b> <br>
+                            ( LENDER )
+                        </td>
+                        <td>
+                            <b><?php echo $loan['first_name'] . ' ' . $loan['middle_name'] . ' ' . $loan['last_name'] ?></b><br>
+                            (Borrower)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span style="text-left">By:</span>
+                        </td>
+                    </tr>
+                    <tr class="text-center">
+                        <td>
+
+                            <b><?php echo $representative[0]['company_representative_name']?></b>
+                        </td>
+                        <td>
+                            <b><?php echo $comakers[0]['name'] ?></b><br>
+                            (Borrower)
+                        </td>
+                    </tr>
+                </table>
+                <br>
+                <?php for ($i = 1; $i <= sizeof($comakers) - 1 ; $i = $i + 2) { ?>
+                    <table style="width:100%;">
+                        <tr class="text-center">
+                            <td>
+                                <b><?php echo array_key_exists($i, $comakers) ? $comakers[$i]['name'] : "" ?></b><br>
+                                (Borrower)
+                            </td>
+                            <td>
+                                <b><?php echo array_key_exists($i + 1, $comakers) ? $comakers[$i + 1]['name'].'<br>'.' (Borrower)'  : "" ?></b>
+                            </td>
+                        </tr>
+                        <br>
+                    </table>
+                <?php } ?>
+
+            </div>
+
+        </body>
 </html>
