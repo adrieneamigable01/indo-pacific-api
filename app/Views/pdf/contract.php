@@ -1127,7 +1127,7 @@ if (file_exists($path)) {
                                
                                 $date = date("Y-m-d");
 
-                                $yearlyInterest = ($interest * 12);
+                                $yearlyInterest = ($interest);
 
                                 // $yearlyInterest = number_format($yearlyInterest);
                                 echo "<tr>";

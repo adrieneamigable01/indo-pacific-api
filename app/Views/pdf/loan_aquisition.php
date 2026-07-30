@@ -476,14 +476,12 @@ function percentageToWords($number)
     </body>
      <body style="padding-left:35px;padding-right:35px;font-size:13px;">
             <br><br><br>
-            <div style="text-align:right">
-                <b style="margin-right:38px;">
-                    <span>ANNEX “B”</span>
-                </b><br>
+            <div style="text-align:right"><br>
                 <b>
                     <span>SCHEDULE OF PAYMENTS</span>
                 </b>
             </div>
+            <br>
             <div class="text-center" style="font-weight:bold;">
                 REPAYMENT TERMS <br>
                 ESSENTIAL PROVISION
@@ -605,7 +603,7 @@ function percentageToWords($number)
                                
                                 $date = date("Y-m-d");
 
-                                $yearlyInterest = ($interest * 12);
+                                $yearlyInterest = ($interest);
 
                                 // $yearlyInterest = number_format($yearlyInterest);
                                 echo "<tr>";
