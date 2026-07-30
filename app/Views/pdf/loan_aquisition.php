@@ -464,7 +464,7 @@ function percentageToWords($number)
                 <tr class="text-center">
                 <td>
                     <b>RAVEN WYNDELL C. RICAPALZA</b><br>
-                    ( BPLC STAFF  )
+                    ( INCO - PACIFIC STAFF  )
                 </td>
                 <td>
                     <b><?php echo $loan['first_name'].' '.$loan['middle_name'].' '.$loan['last_name']?></b><br>
