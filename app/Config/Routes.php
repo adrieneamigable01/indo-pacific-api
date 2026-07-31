@@ -209,4 +209,90 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         'API\CashierVault::getBorrowerCashierTransactions',
         ['filter' => 'auth']
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | BANK ACCOUNTS
+    |--------------------------------------------------------------------------
+    */
+
+    $routes->get(
+        'bankaccounts',
+        'API\Bank::index',
+        ['filter' => 'auth']
+    );
+
+    $routes->get(
+        'bankaccounts/details/(:num)',
+        'API\Bank::details/$1',
+        ['filter' => 'auth']
+    );
+
+  
+
+    $routes->put(
+        'bankaccounts',
+        'API\Bank::update',
+        ['filter' => 'auth']
+    );
+
+    $routes->delete(
+        'bankaccounts',
+        'API\Bank::delete',
+        ['filter' => 'auth']
+    );
+
+    $routes->get(
+        'bankaccounts/summary',
+        'API\Bank::summary',
+        ['filter' => 'auth']
+    );
+
+
+
+    $routes->get(
+        'bankaccounts/transactions',
+        'API\Bank::transactions',
+        ['filter' => 'auth']
+    );
+    $routes->post(
+        'bankaccounts/transactions',
+        'API\Bank::addTransaction',
+        ['filter' => 'auth']
+    );
+    $routes->put(
+        'bankaccounts/transactions/(:num)',
+        'API\Bank::editTransaction/$1',
+        ['filter' => 'auth']
+    );
+
+    $routes->get(
+        'bankaccounts/transactions/(:num)',
+        'API\Bank::transactionDetails/$1'
+    );
+    
+    $routes->get(
+        'bankaccounts/transactions/dashboard/(:num)',
+        'API\Bank::dashboardAccountSummary/$1'
+    );
+
+
+    $routes->get('bank/banks', 'API\Bank::getBanks');
+    $routes->get('bankaccounts/all', 'API\Bank::getBankAccountsAll');
+    $routes->get(
+        'bank',
+        'API\Bank::index',
+        ['filter' => 'auth']
+    );
+    $routes->post(
+        'bank',
+        'API\Bank::addBank',
+        ['filter' => 'auth']
+    );
+    $routes->put(
+        'bank',
+        'API\Bank::updateBank',
+        ['filter' => 'auth']
+    );
+   
 }); 
