@@ -1646,6 +1646,7 @@ class CashierVault extends BaseController
         ResponseInterface::HTTP_OK
     )
     {
+        helper('jwt');
         $db = \Config\Database::connect();
 
         try {
@@ -1832,6 +1833,38 @@ class CashierVault extends BaseController
             |--------------------------------------------------------------------------
             */
 
+            
+           
+
+
+            $userId = null;
+
+            try {
+
+                $authHeader = $this->request->getHeaderLine('Authorization');
+
+                if (!empty($authHeader)) {
+
+                    $token = str_replace(
+                        'Bearer ',
+                        '',
+                        $this->request->getHeaderLine('Authorization')
+                    );
+
+                           $encodedToken = decodeJWT($token);
+                    
+                    if (isset($encodedToken->data)) {
+
+                        $jwtData = (array)$encodedToken->data;
+                       
+                        $userId = $jwtData['userid'] ?? null;
+                    }
+                }
+
+            } catch (\Exception $e) {
+                log_message('error', 'Audit JWT Error: ' . $e->getMessage());
+            }
+
             $transactionId =
                 $this->cashierVaultModel
                     ->insertTransaction([
@@ -1865,9 +1898,7 @@ class CashierVault extends BaseController
                             $input['remarks']
                             ?? '',
                         'created_at' => $businessDate,
-                        'created_by' =>
-                            $input['created_by']
-                            ?? 1
+                        'created_by' => $userId
 
                     ]);
 
