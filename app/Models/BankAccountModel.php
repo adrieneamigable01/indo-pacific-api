@@ -27,9 +27,13 @@ class BankAccountModel extends Model
         'description',
 
         'is_active',
+        'account_status',
+        'closed_by',
+        'closed_at',
+        'closed_reason',
 
-        'created_by'
-
+        'created_by',
+      
     ];
 
     protected $useTimestamps = true;
@@ -95,4 +99,92 @@ class BankAccountModel extends Model
             )
             ->first();
     }
+    public function closeBankAccount(
+        int $bankAccountId,
+        ?int $userId = null,
+        ?string $reason = null
+    )
+    {
+        $db = \Config\Database::connect();
+
+        try {
+
+            $db->transBegin();
+
+            $account = $this->find($bankAccountId);
+
+            if (!$account) {
+
+                throw new \Exception(
+                    'Bank account not found.'
+                );
+
+            }
+
+            if ($account['account_status'] == 'CLOSED') {
+
+                throw new \Exception(
+                    'Bank account is already closed.'
+                );
+
+            }
+
+            if ((float)$account['current_balance'] > 0) {
+
+                throw new \Exception(
+                    'Cannot close this account because it still has a balance of ₱' .
+                    number_format(
+                        $account['current_balance'],
+                        2
+                    )
+                );
+
+            }
+
+            $this->update(
+
+                $bankAccountId,
+
+                [
+
+                    'account_status' => 'CLOSED',
+
+                    'closed_by' => $userId,
+
+                    'closed_at' => date('Y-m-d H:i:s'),
+
+                    'closed_reason' => strtoupper(
+                        trim($reason ?? '')
+                    )
+
+                ]
+
+            );
+
+            $db->transCommit();
+
+            return [
+
+                'isError' => false,
+
+                'message' => 'Bank account successfully closed.'
+
+            ];
+
+        } catch (\Exception $e) {
+
+            $db->transRollback();
+
+            return [
+
+                'isError' => true,
+
+                'message' => $e->getMessage()
+
+            ];
+
+        }
+
+    }
+    
 }

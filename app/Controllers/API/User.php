@@ -373,45 +373,56 @@ class User extends BaseController
     public function logout()
     {
         helper('jwt');
+
         try {
-            // Extract token from header manually
-            $authHeader = $this->request->getServer('HTTP_AUTHORIZATION');
+
+            $authHeader = $this->request->getHeaderLine('Authorization');
+
             $encodedToken = getJWTFromRequest($authHeader);
 
-            try {
-                // Validate to get expiration time
-                $decodedToken = validateJWTFromRequest($encodedToken);
+            $decodedToken = validateJWTFromRequest($encodedToken);
 
-                // Add to blacklist if valid
-                $db = \Config\Database::connect();
+            $db = \Config\Database::connect();
+
+            $exists = $db->table('token_blacklist')
+                ->where('token', $encodedToken)
+                ->countAllResults();
+
+            if (!$exists) {
+
                 $db->table('token_blacklist')->insert([
-                    'token'      => $encodedToken,
-                    'expires_at' => date('Y-m-d H:i:s', $decodedToken->exp)
+
+                    'token' => $encodedToken,
+
+                    'expires_at' => date(
+                        'Y-m-d H:i:s',
+                        $decodedToken->exp
+                    )
+
                 ]);
 
-                return $this->response->setJSON([
-                    'isError' => false,
-                    'message' => 'Logged out successfully.'
-                ]);
-
-            } catch (\Exception $e) {
-                // Token is already expired or invalid
-                // We return "success" because the user should be logged out regardless
-                return $this->response->setJSON([
-                    'isError' => false,
-                    'message' => 'Session expired. Logged out locally.'
-                ]);
             }
 
-        } catch (\Exception $e) {
             return $this->response->setJSON([
-                'isError' => true,
-                'message' => 'Invalid logout request',
-                'error'   => $e->getMessage()
-            ])->setStatusCode(400);
+
+                'isError' => false,
+
+                'message' => 'Logged out successfully.'
+
+            ]);
+
+        } catch (\Exception $e) {
+
+            return $this->response->setJSON([
+
+                'isError' => false,
+
+                'message' => 'Session already expired.'
+
+            ]);
+
         }
 
-        
     }
 
     public function getCashiers()

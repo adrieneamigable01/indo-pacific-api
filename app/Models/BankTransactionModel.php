@@ -44,7 +44,16 @@ class BankTransactionModel extends Model
 
         'source',
 
-        'created_by'
+        'created_by',
+
+        'void_reason',
+
+        'void_by',
+
+        'void_at',
+
+        'is_void',
+
 
     ];
 
@@ -156,6 +165,10 @@ class BankTransactionModel extends Model
                 'bank_transactions.bank_account_id',
                 $bankAccountId
             )
+            ->where(
+                'bank_transactions.is_void',
+                0
+            )
             ->orderBy(
                 'transaction_date',
                 'ASC'
@@ -193,7 +206,7 @@ class BankTransactionModel extends Model
             ->select('
                 bt.*
             ');
-
+        $builder->where('bt.is_void', 0);
         if (!empty($filters['bank_account_id'])) {
 
             $builder->where(
@@ -264,7 +277,8 @@ class BankTransactionModel extends Model
             ->countAllResults(false);
 
         $totalBuilder = $this->db
-            ->table('bank_transactions');
+            ->table('bank_transactions')
+            ->where('is_void', 0);
 
         if (!empty($filters['bank_account_id'])) {
 
@@ -449,6 +463,8 @@ class BankTransactionModel extends Model
 
             ->where('bank_account_id', $bankAccountId)
 
+            ->where('is_void', 0)
+
             ->orderBy('transaction_date', 'ASC')
 
             ->orderBy('bank_transaction_id', 'ASC')
@@ -581,7 +597,7 @@ class BankTransactionModel extends Model
                 ba.account_type,
                 b.bank_name
             ")
-
+                
             ->join(
                 'bank_accounts ba',
                 'ba.bank_account_id = bt.bank_account_id'
@@ -596,7 +612,10 @@ class BankTransactionModel extends Model
                 'bt.bank_transaction_id',
                 $transactionId
             )
-
+            ->where(
+                'bt.is_void',
+                0
+            )
             ->get()
 
             ->getRowArray();
@@ -619,6 +638,7 @@ class BankTransactionModel extends Model
             ->selectSum('amount', 'total')
             ->where('bank_account_id', $bankAccountId)
             ->where('transaction_type', 'WITHDRAWAL')
+            ->where('is_void', 0)
             ->get()
             ->getRow()
             ->total ?? 0;
@@ -635,6 +655,7 @@ class BankTransactionModel extends Model
         // Total Transactions
         $summary['total_transactions'] = $this->builder()
             ->where('bank_account_id', $bankAccountId)
+            ->where('is_void', 0)
             ->countAllResults();
 
         // Account Details
@@ -652,6 +673,7 @@ class BankTransactionModel extends Model
         $lastTransaction = $this->builder()
             ->select('transaction_date')
             ->where('bank_account_id', $bankAccountId)
+            ->where('is_void', 0)
             ->orderBy('transaction_date', 'DESC')
             ->get()
             ->getRowArray();
@@ -661,5 +683,371 @@ class BankTransactionModel extends Model
             : '-';
 
         return $summary;
+    }
+    public function voidTransaction(
+        int $bankTransactionId,
+        ?int $userId = null,
+        ?string $reason = null
+    )
+    {
+        $db = \Config\Database::connect();
+
+        try {
+
+            $db->transBegin();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Find Transaction
+            |--------------------------------------------------------------------------
+            */
+
+            $transaction = $this->find($bankTransactionId);
+
+            if (!$transaction) {
+
+                throw new \Exception(
+                    'Transaction not found.'
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Check Sender Bank Account
+            |--------------------------------------------------------------------------
+            */
+
+            $bankAccountModel = new BankAccountModel();
+
+            $account = $bankAccountModel->find(
+                $transaction['bank_account_id']
+            );
+
+            if (!$account) {
+
+                throw new \Exception(
+                    'Bank account not found.'
+                );
+
+            }
+
+            if ($account['account_status'] === 'CLOSED') {
+
+                throw new \Exception(
+                    'Cannot void transaction because the bank account is already closed.'
+                );
+
+            }
+
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Check Related Bank Account (Transfer Only)
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+
+                in_array(
+
+                    $transaction['transaction_type'],
+
+                    [
+
+                        'TRANSFER_OUT',
+
+                        'TRANSFER_IN'
+
+                    ]
+
+                )
+
+            ) {
+
+                $related = null;
+
+                if ($transaction['transaction_type'] === 'TRANSFER_OUT') {
+
+                    // Find the receiver
+                    $related = $this
+
+                        ->where(
+                            'transaction_ref',
+                            $transaction['reference_no']
+                        )
+
+                        ->first();
+
+                } else {
+
+                    // Find the sender
+                    $related = $this
+
+                        ->where(
+                            'reference_no',
+                            $transaction['transaction_ref']
+                        )
+
+                        ->first();
+
+                }
+
+                if ($related) {
+
+                    $relatedAccount = $bankAccountModel->find(
+                        $related['bank_account_id']
+                    );
+
+                    if (
+
+                        $relatedAccount &&
+
+                        $relatedAccount['account_status'] === 'CLOSED'
+
+                    ) {
+
+                        throw new \Exception(
+                            'Cannot void transaction because the related bank account is already closed.'
+                        );
+
+                    }
+
+                }
+
+            }
+            /*
+            |--------------------------------------------------------------------------
+            | Already Voided?
+            |--------------------------------------------------------------------------
+            */
+
+            if ((int)$transaction['is_void'] === 1) {
+
+                throw new \Exception(
+                    'Transaction is already voided.'
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Void Main Transaction
+            |--------------------------------------------------------------------------
+            */
+
+            $this->update(
+
+                $bankTransactionId,
+
+                [
+
+                    'is_void'     => 1,
+
+                    'void_reason' => strtoupper(trim($reason ?? '')),
+
+                    'void_by'     => $userId,
+
+                    'void_at'     => date('Y-m-d H:i:s')
+
+                ]
+
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Void Related Transfer
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+
+                in_array(
+
+                    $transaction['transaction_type'],
+
+                    [
+
+                        'TRANSFER_OUT',
+
+                        'TRANSFER_IN'
+
+                    ]
+
+                )
+
+            ) {
+
+                $related = null;
+
+                if ($transaction['transaction_type'] == 'TRANSFER_OUT') {
+
+                    $related = $this
+
+                        ->where(
+                            'transaction_ref',
+                            $transaction['reference_no']
+                        )
+
+                        ->first();
+
+                } else {
+
+                    $related = $this
+
+                        ->where(
+                            'reference_no',
+                            $transaction['transaction_ref']
+                        )
+
+                        ->first();
+
+                }
+
+                if ($related) {
+
+                    $this->update(
+
+                        $related['bank_transaction_id'],
+
+                        [
+
+                            'is_void'     => 1,
+
+                            'void_reason' => strtoupper(trim($reason ?? '')),
+
+                            'void_by'     => $userId,
+
+                            'void_at'     => date('Y-m-d H:i:s')
+
+                        ]
+
+                    );
+
+                }
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Recalculate Sender Balance
+            |--------------------------------------------------------------------------
+            */
+
+            $this->recalculateAccountBalance(
+                $transaction['bank_account_id']
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Recalculate Receiver Balance
+            |--------------------------------------------------------------------------
+            */
+
+            /*
+            |--------------------------------------------------------------------------
+            | Recalculate Related Account (Transfer Only)
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+
+                in_array(
+
+                    $transaction['transaction_type'],
+
+                    [
+
+                        'TRANSFER_OUT',
+
+                        'TRANSFER_IN'
+
+                    ]
+
+                )
+
+            ) {
+
+                $related = null;
+
+                if ($transaction['transaction_type'] === 'TRANSFER_OUT') {
+
+                    $related = $this
+
+                        ->where(
+                            'transaction_ref',
+                            $transaction['reference_no']
+                        )
+
+                        ->first();
+
+                } else {
+
+                    $related = $this
+
+                        ->where(
+                            'reference_no',
+                            $transaction['transaction_ref']
+                        )
+
+                        ->first();
+
+                }
+
+                if (
+
+                    $related &&
+
+                    $related['bank_account_id'] != $transaction['bank_account_id']
+
+                ) {
+
+                    $this->recalculateAccountBalance(
+                        $related['bank_account_id']
+                    );
+
+                }
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Commit
+            |--------------------------------------------------------------------------
+            */
+
+            if ($db->transStatus() === false) {
+
+                throw new \Exception(
+                    'Failed to void transaction.'
+                );
+
+            }
+
+            $db->transCommit();
+
+            return [
+
+                'isError' => false,
+
+                'message' => 'Transaction successfully voided.'
+
+            ];
+
+        } catch (\Throwable $e) {
+
+            $db->transRollback();
+
+            return [
+
+                'isError' => true,
+
+                'message' => $e->getMessage()
+
+            ];
+
+        }
+
     }
 }

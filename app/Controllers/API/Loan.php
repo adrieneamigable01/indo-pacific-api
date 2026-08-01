@@ -847,6 +847,179 @@ class Loan extends BaseController
 
             break;
 
+            case 6:
+
+                $totalYears = 7;
+
+                $interestYears = 5;
+
+                $principalOnlyYears = 2;
+
+                $monthlyInterest = $loanAmount * 0.01;
+
+                $totalInterest = $monthlyInterest * ($totalYears * 12);
+
+                // Spread all 7 years of interest over the first 5 years
+                $yearlyInterest = $totalInterest / $interestYears;
+
+                $yearlyPrincipal = $loanAmount / $totalYears;
+
+                /*
+                |--------------------------------------------------------------------------
+                | Compute Adjustment
+                |--------------------------------------------------------------------------
+                */
+
+                $yearlyInterestEquivalent = $totalInterest / $totalYears;
+
+                $interestDifference =
+                    $yearlyInterest - $yearlyInterestEquivalent;
+
+                $firstFiveYearPrincipal =
+                    $yearlyPrincipal - $interestDifference;
+
+                /*
+                |--------------------------------------------------------------------------
+                | Remaining Principal
+                |--------------------------------------------------------------------------
+                */
+
+                $remainingPrincipal =
+                    $loanAmount -
+                    ($firstFiveYearPrincipal * $interestYears);
+
+                $lastTwoYearPrincipal =
+                    $remainingPrincipal / $principalOnlyYears;
+
+                $balance = $loanAmount;
+
+                /*
+                |--------------------------------------------------------------------------
+                | YEARS 1-5 (Principal + Interest)
+                |--------------------------------------------------------------------------
+                */
+
+                for ($year = 1; $year <= 5; $year++) {
+
+                    $principalDue = round(
+                        $firstFiveYearPrincipal,
+                        2
+                    );
+
+                    $interestDue = round(
+                        $yearlyInterest,
+                        2
+                    );
+
+                    $balance -= $principalDue;
+
+                    $additionalYear = $year - 1;
+
+                    $result = $db->table('loan_schedule')->insert([
+
+                        'loan_id' => $loanId,
+
+                        'due_date' => date(
+                            'Y-m-d',
+                            strtotime("+{$additionalYear} year", strtotime($releaseDate))
+                        ),
+
+                        'principal_due' => $principalDue,
+
+                        'interest_due' => $interestDue,
+
+                        'penalty_due' => 0,
+
+                        'principal_paid' => 0,
+
+                        'interest_paid' => 0,
+
+                        'penalty_paid' => 0,
+
+                        'balance' => max(round($balance, 2), 0),
+
+                        'status' => 'UNPAID',
+
+                        'created_at' => date('Y-m-d H:i:s')
+
+                    ]);
+
+                    if (!$result) {
+
+                        throw new \Exception(
+                            'Failed generating Product 6 schedule.'
+                        );
+
+                    }
+
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | YEARS 6-7 (Principal Only)
+                |--------------------------------------------------------------------------
+                */
+
+                for ($year = 6; $year <= 7; $year++) {
+
+                    $principalDue = round(
+                        $lastTwoYearPrincipal,
+                        2
+                    );
+
+                    $interestDue = 0;
+
+                    $balance -= $principalDue;
+
+                    if ($year == 7) {
+
+                        $balance = 0;
+
+                    }
+
+                    $additionalYear = $year - 1;
+
+                    $result = $db->table('loan_schedule')->insert([
+
+                        'loan_id' => $loanId,
+
+                        'due_date' => date(
+                            'Y-m-d',
+                            strtotime("+{$additionalYear} year", strtotime($releaseDate))
+                        ),
+
+                        'principal_due' => $principalDue,
+
+                        'interest_due' => $interestDue,
+
+                        'penalty_due' => 0,
+
+                        'principal_paid' => 0,
+
+                        'interest_paid' => 0,
+
+                        'penalty_paid' => 0,
+
+                        'balance' => max(round($balance, 2), 0),
+
+                        'status' => 'UNPAID',
+
+                        'created_at' => date('Y-m-d H:i:s')
+
+                    ]);
+
+                    if (!$result) {
+
+                        throw new \Exception(
+                            'Failed generating Product 6 schedule.'
+                        );
+
+                    }
+
+                }
+
+            break;
+
             case 2:
 
                 $monthlyPrincipal = $loanAmount / $loanTerms;

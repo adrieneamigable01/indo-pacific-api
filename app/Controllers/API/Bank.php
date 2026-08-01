@@ -2486,5 +2486,143 @@ class Bank extends BaseController
             ]);
         }
     }
+
+    public function closeBankAccount(
+        int $bankAccountId
+    )
+    {
+        helper('jwt');
+
+        try {
+
+            $userId = null;
+
+            $authHeader = $this->request->getHeaderLine('Authorization');
+
+            if (!empty($authHeader)) {
+
+                $token = str_replace(
+                    'Bearer ',
+                    '',
+                    $authHeader
+                );
+
+                $decoded = decodeJWT($token);
+
+                if (isset($decoded->data)) {
+
+                    $jwtData = (array)$decoded->data;
+
+                    $userId = $jwtData['userid'] ?? null;
+
+                }
+
+            }
+
+            $reason = $this->request->getVar('reason');
+
+            $result = $this->bankAccountModel->closeBankAccount(
+
+                $bankAccountId,
+
+                $userId,
+
+                $reason
+
+            );
+
+            if ($result['isError']) {
+
+                return $this->getResponse(
+
+                    $result,
+
+                    ResponseInterface::HTTP_BAD_REQUEST
+
+                );
+
+            }
+
+            return $this->getResponse($result);
+
+        } catch (\Exception $e) {
+
+            return $this->getResponse([
+
+                'isError' => true,
+
+                'message' => $e->getMessage()
+
+            ], ResponseInterface::HTTP_BAD_REQUEST);
+
+        }
+
+    }
+
+    public function voidTransaction($bankTransactionId)
+    {
+
+        helper('jwt');
+
+        try {
+
+            $userId = null;
+
+            $authHeader = $this->request->getHeaderLine('Authorization');
+
+            if (!empty($authHeader)) {
+
+                $token = str_replace(
+                    'Bearer ',
+                    '',
+                    $authHeader
+                );
+
+                $decoded = decodeJWT($token);
+
+                if (isset($decoded->data)) {
+
+                    $jwtData = (array)$decoded->data;
+
+                    $userId = $jwtData['userid'] ?? null;
+
+                }
+
+            }
+
+            $reason = $this->request->getVar('reason');
+
+            $result = $this->bankTransactionModel->voidTransaction(
+
+                $bankTransactionId,
+
+                $userId,
+
+                $reason
+
+            );
+
+            return $this->getResponse(
+
+                $result,
+
+                $result['isError']
+                    ? ResponseInterface::HTTP_BAD_REQUEST
+                    : ResponseInterface::HTTP_OK
+
+            );
+
+        } catch (\Exception $e) {
+
+            return $this->getResponse([
+
+                'isError' => true,
+
+                'message' => $e->getMessage()
+
+            ], ResponseInterface::HTTP_BAD_REQUEST);
+
+        }
+    }
  
 }

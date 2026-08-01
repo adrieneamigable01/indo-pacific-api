@@ -33,6 +33,7 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     // -----------------------------
     $routes->add('register', 'API\\User::register');
     $routes->add('login', 'API\\User::login');
+    $routes->add('logout', 'API\\User::logout');
     
     $routes->get('checktoken', 'API\\User::checkToken');
     $routes->add('validateOTP', 'API\\User::validateOTPForUser');
@@ -260,6 +261,11 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         'API\Bank::addTransaction',
         ['filter' => 'auth']
     );
+    $routes->delete(
+        'bankaccounts/close/(:num)',
+        'API\Bank::closeBankAccount/$1',
+        ['filter' => 'auth']
+    );
     $routes->put(
         'bankaccounts/transactions/(:num)',
         'API\Bank::editTransaction/$1',
@@ -274,6 +280,11 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     $routes->get(
         'bankaccounts/transactions/dashboard/(:num)',
         'API\Bank::dashboardAccountSummary/$1'
+    );
+
+    $routes->delete(
+        'bankaccounts/transactions/void/(:num)',
+        'API\Bank::voidTransaction/$1'
     );
 
 
@@ -294,5 +305,6 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         'API\Bank::updateBank',
         ['filter' => 'auth']
     );
+    
    
 }); 
