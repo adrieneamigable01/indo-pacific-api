@@ -1059,6 +1059,9 @@ if (file_exists($path)) {
                         if(strtoupper($loan['product_name']) == "LONG TERM LOAN"){
                             $term = 10;
                         }
+                        if(strtoupper($loan['product_name']) == "LONG TERM LOAN ( 7 YEARS )"){
+                            $term = 7;
+                        }
                         if(strtoupper($loan['product_name']) == "INTEREST ONLY"){
                             $term = 12;
                         }
@@ -1098,7 +1101,74 @@ if (file_exists($path)) {
                                 echo "<td>".$yearlyCollection."</td>";
                                 echo "<td>".$balance."</td>";
                                 echo "</tr>";
-                            }else if(strtoupper($loan['product_name']) == "INTEREST ONLY"){
+                            }else if (strtoupper($loan['product_name']) == "LONG TERM LOAN ( 7 YEARS )") {
+
+                                $principal = $amountData;
+
+                                $interest = (float)$principal * 0.01;
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Same computation as Case 6
+                                |--------------------------------------------------------------------------
+                                */
+
+                                $totalYears = 7;
+
+                                $monthlyInterest = $amountData * 0.01;
+
+                                $totalInterest = $monthlyInterest * ($totalYears * 12);
+
+                                // Collect all 7 years interest in first 5 years
+                                $yearlyInterest = $totalInterest / 5;
+
+                                // Normal yearly principal
+                                $yearlyPrincipal = $amountData / $totalYears;
+
+                                // Compute adjustment (same as Case 6)
+                                $yearlyInterestEquivalent = $totalInterest / $totalYears;
+
+                                $interestDifference =
+                                    $yearlyInterest - $yearlyInterestEquivalent;
+
+                                $firstFiveYearPrincipal =
+                                    $yearlyPrincipal - $interestDifference;
+
+                                // Remaining principal
+                                $remainingPrincipal =
+                                    $amountData -
+                                    ($firstFiveYearPrincipal * 5);
+
+                                $lastTwoYearsPrincipal =
+                                    $remainingPrincipal / 2;
+
+                                if ($i <= 5) {
+
+                                    $principalDue = $firstFiveYearPrincipal;
+                                    $interestDue = $yearlyInterest;
+
+                                } else {
+
+                                    $principalDue = $lastTwoYearsPrincipal;
+                                    $interestDue = 0;
+
+                                }
+
+                                $balance -= $principalDue;
+
+                                $balance = $balance < 1
+                                    ? 0
+                                    : number_format($balance, 2, '.', '');
+
+                                echo "<tr>";
+                                echo "<td>".$i."</td>";
+                                echo "<td>".number_format($principalDue, 2, '.', '')."</td>";
+                                echo "<td>".number_format($interestDue, 2, '.', '')."</td>";
+                                echo "<td>".number_format($principalDue + $interestDue, 2, '.', '')."</td>";
+                                echo "<td>".$balance."</td>";
+                                echo "</tr>";
+                            }
+                            else if(strtoupper($loan['product_name']) == "INTEREST ONLY"){
                                
                                 $principal = $amountData;
                                 
