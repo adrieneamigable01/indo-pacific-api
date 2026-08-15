@@ -2517,11 +2517,6 @@ class CashierVault extends BaseController
                         'balance_after' =>
                             $cashierAfter,
                             
-                        'business_date' =>
-                             $dailyClose[
-                            'business_date'
-                        ],
-
                         'reference_no' =>
                             'DC-' .
                             $dailyClose[

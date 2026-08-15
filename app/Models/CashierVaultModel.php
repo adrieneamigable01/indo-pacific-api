@@ -1786,6 +1786,10 @@ class CashierVaultModel extends Model
                 'created_by' =>
 
                     $data['created_by'],
+                    
+                'business_date' =>
+
+                    date("Y-m-d H:i:s"),
 
                 'created_at' =>
 
