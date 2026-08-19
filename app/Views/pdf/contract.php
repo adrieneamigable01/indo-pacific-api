@@ -894,10 +894,10 @@ if (file_exists($path)) {
         <table style="width:100%;margin-top:70px;" class="text-center">
             <tr>
                 <td>
-                    <u><b> GLYZA T. ALQUIZALAS </b></u>
+                    <u><b> ________________________ </b></u>
                 </td>
                 <td>
-                    <u><b> MA. TERESITA BALANSAG </b></u>
+                    <u><b> ________________________ </b></u>
                 </td>
             </tr>
         </table>
