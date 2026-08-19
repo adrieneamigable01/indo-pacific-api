@@ -50,6 +50,27 @@ class Borrower extends BaseController
         }
     }
 
+    public function getAll()
+    {
+        try {
+
+            $data = $this->borrowerModel->getBorrowers();
+
+            return $this->response->setJSON([
+                'isError' => false,
+                'message' => 'Success',
+                'data' => $data
+            ]);
+
+        } catch (Exception $e) {
+
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
     public function getSummary()
     {
         try {
