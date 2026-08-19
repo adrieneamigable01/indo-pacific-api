@@ -58,6 +58,7 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     $routes->put('borrower', 'API\\Borrower::update', ['filter' => 'auth']);
     $routes->delete('borrower', 'API\\Borrower::void', ['filter' => 'auth']);
     $routes->get('borrower/summary', 'API\\Borrower::getSummary', ['filter' => 'auth']);
+    $routes->get('borrower/all', 'API\\Borrower::getAll', ['filter' => 'auth']);
     $routes->get('borrower/importdraft', 'API\\Borrower::importDraft', ['filter' => 'auth']);
     $routes->get('borrower/settlement-deficit', 'API\\Loan::getBorrowerSettlementDeficit');    
     
@@ -306,5 +307,204 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         ['filter' => 'auth']
     );
     
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employee
+    |--------------------------------------------------------------------------
+    */
+
+    $routes->group('employee', ['filter' => 'auth'], function ($routes) {
+
+        $routes->get('/', 'API\Employee::get');
+
+        $routes->get('summary', 'API\Employee::getSummary');
+
+        $routes->get('details/(:num)', 'API\Employee::details/$1');
+
+        $routes->post('add', 'API\Employee::add');
+
+        $routes->put('update', 'API\Employee::update');
+
+        $routes->delete('void', 'API\Employee::void');
+
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employee Schedule
+    |--------------------------------------------------------------------------
+    */
+
+    $routes->group('employee-schedule', ['filter' => 'auth'],function ($routes) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Page
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->get(
+            '/',
+            'API\EmployeeSchedule::index'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | CRUD
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->get(
+            'get',
+            'API\EmployeeSchedule::get'
+        );
+
+
+        $routes->post(
+            'save',
+            'API\EmployeeSchedule::save'
+        );
+
+
+        $routes->delete(
+            'delete',
+            'API\EmployeeSchedule::delete'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Schedule Days
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->get(
+            'days',
+            'API\EmployeeSchedule::getScheduleDays'
+        );
+
+        $routes->post(
+            'save-days',
+            'API\EmployeeSchedule::saveScheduleDays'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Current Employee Schedule
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->get(
+            'current',
+            'API\EmployeeSchedule::getCurrentSchedule'
+        );
+
+        $routes->get(
+            'dates',
+            'API\EmployeeSchedule::getScheduleDates'
+        );
+
+    });
+
+    $routes->group('employee-salary', ['filter' => 'auth'], function ($routes) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Page
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->get(
+            '/',
+            'API\EmployeeSalary::index'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Salary
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->get(
+            'get',
+            'API\EmployeeSalary::get'
+        );
+
+        $routes->post(
+            'save',
+            'API\EmployeeSalary::save'
+        );
+
+        $routes->delete(
+            'delete',
+            'API\EmployeeSalary::delete'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Salary Effective Dates
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->get(
+            'dates',
+            'API\EmployeeSalary::getSalaryDates'
+        );
+
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employee Government Contribution
+    |--------------------------------------------------------------------------
+    */
+
+    $routes->group('employee-government', function ($routes) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->get(
+
+            'get',
+
+            'API\EmployeeGovernment::get'
+
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Save
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->post(
+
+            'save',
+
+            'API\EmployeeGovernment::save'
+
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Delete
+        |--------------------------------------------------------------------------
+        */
+
+        $routes->delete(
+
+            'delete',
+
+            'API\EmployeeGovernment::delete'
+
+        );
+
+    });
    
 }); 
