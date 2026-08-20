@@ -1537,7 +1537,7 @@ class Loan extends BaseController
 
             $schedules = $db->table('loan_schedule')
             ->where('loan_id', $input['loan_id'])
-            ->orderBy('due_date', 'DESC')
+            ->orderBy('due_date', 'ASC')
             ->get()
             ->getResultArray();
 
