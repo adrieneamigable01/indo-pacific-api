@@ -2331,9 +2331,9 @@ class CashierVaultModel extends Model
                 $balance += $row['amount'];
 
             }else{
-
-                $balance -= $row['amount'];
-
+                if($row['transaction_type']!="BANK CHECK"){
+                     $balance -= $row['amount'];
+                }
             }
 
             $this->db

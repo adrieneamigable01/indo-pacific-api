@@ -1791,6 +1791,7 @@ class CashierVault extends BaseController
                     break;
 
                 case 'CASH OUT':
+                case 'EXPENSE':
 
                     if (
                         $amount >
@@ -1812,6 +1813,10 @@ class CashierVault extends BaseController
                         $currentBalance -
                         $amount;
 
+                    break;
+
+                case 'BANK CHECK':
+                     $balanceAfter = $currentBalance;
                     break;
 
                 default:
