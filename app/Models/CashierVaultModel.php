@@ -2203,7 +2203,29 @@ class CashierVaultModel extends Model
             )
             ->countAllResults();
 
-        return $count > 0;
+        if ($count > 0) {
+            return true;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 2. CHECK IF BUSINESS DATE HAS ALREADY PASSED
+        |--------------------------------------------------------------------------
+        */
+
+        $today = date('Y-m-d');
+
+        if ($businessDate < $today) {
+            return true;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | BUSINESS DATE IS STILL OPEN
+        |--------------------------------------------------------------------------
+        */
+
+        return false;
     }
 
     public function insertTransaction(
