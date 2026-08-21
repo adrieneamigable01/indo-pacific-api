@@ -169,6 +169,7 @@ class BorrowerSalaryModel extends Model
 
     // ONLY ACTIVE BORROWERS
     $builder->where('b.status', 'ACTIVE');
+    $builder->where('b.isActive', '1');
 
     if (!empty($search)) {
 
