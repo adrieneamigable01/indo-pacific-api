@@ -150,6 +150,7 @@ class Loan extends BaseController
                 "recordsTotal" => 0,
                 "recordsFiltered" => 0,
                 "data" => [],
+                "status" => $status,
                 "error" => $e->getMessage()
             ]);
 
