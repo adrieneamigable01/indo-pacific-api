@@ -5167,31 +5167,104 @@ class Loan extends BaseController
     }
     public function loanClaimAquisition()
     {
-        $loanId = $this->request->getGet('id');
+        $paymentId = $this->request->getGet('id');
 
+        if (empty($paymentId)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Payment ID is required.');
+        }
+
+        $db = db_connect();
+
+        /*
+        * Get payment
+        */
+        $payment = $db
+            ->table('loan_payments')
+            ->where('payment_id', $paymentId)
+            ->get()
+            ->getRow();
+
+        if (!$payment) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setBody('Payment record not found.');
+        }
+
+
+        /*
+        * Get loan
+        */
         $loanModel = new LoanModel();
 
-        $loan = $loanModel->getLoanDetails($loanId);
-   
-        $loan['collateral'] = $loanModel->getCollateral($loanId);
-        $loan['comakers'] = $loanModel->getComakers($loanId);
-        $data['comakers'] = $loanModel->getComakers($loanId);
-        $data['representative'] = $loanModel->getRepresentative();
-            // print_r($data['representative']);return false;
+        $loan = $loanModel->getLoanDetails(
+            $payment->loan_id
+        );
+
+        if (!$loan) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setBody('Loan record not found.');
+        }
+
+
+        /*
+        * Additional loan information
+        */
+        $loan['collateral'] = $loanModel->getCollateral(
+            $payment->loan_id
+        );
+
+        $loan['comakers'] = $loanModel->getComakers(
+            $payment->loan_id
+        );
+
+
+        /*
+        * Build PDF data
+        */
+        $data = [];
+
+        $data['payment'] = $payment;
+        $data['loan']    = $loan;
+
+        $data['comakers'] = $loanModel->getComakers(
+            $payment->loan_id
+        );
+
+        $data['representative'] =
+            $loanModel->getRepresentative();
+
+
+        /*
+        * Borrower name
+        */
         $fullname =
             $loan['first_name'] . ' ' .
             $loan['middle_name'] . ' ' .
             $loan['last_name'];
 
-        $name = "Contract of Loan of Mr/Ms {$fullname}";
 
-        $data['loan'] = $loan;
+        /*
+        * PDF title
+        */
+        $name =
+            "Payment Statement - Loan {$payment->loan_id} - Payment {$payment->payment_id}";
+
         $data['title'] = $name;
 
+
+        /*
+        * Generate PDF
+        */
         $pdf = new Pdf();
 
-        $html = view('pdf/claim_aquisition', $data);
-      
+        $html = view(
+            'pdf/claim_aquisition_payment',
+            $data
+        );
+
         $pdf->load_view2_portrait(
             $name,
             $html
