@@ -626,7 +626,7 @@ class Loan extends BaseController
                 'loan_products p',
                 'p.loan_product_id = l.loan_product_id'
             )
-            ->where('status', 'ACTIVE')
+            ->where('lp.status', 'ACTIVE')
             ->where(
                 'l.borrower_id',
                 $borrowerId
