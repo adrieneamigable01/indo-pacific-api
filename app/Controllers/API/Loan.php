@@ -5164,6 +5164,38 @@ class Loan extends BaseController
             $html
         );
     }
+    public function loanClaimAquisition()
+    {
+        $loanId = $this->request->getGet('id');
+
+        $loanModel = new LoanModel();
+
+        $loan = $loanModel->getLoanDetails($loanId);
+   
+        $loan['collateral'] = $loanModel->getCollateral($loanId);
+        $loan['comakers'] = $loanModel->getComakers($loanId);
+        $data['comakers'] = $loanModel->getComakers($loanId);
+        $data['representative'] = $loanModel->getRepresentative();
+            // print_r($data['representative']);return false;
+        $fullname =
+            $loan['first_name'] . ' ' .
+            $loan['middle_name'] . ' ' .
+            $loan['last_name'];
+
+        $name = "Contract of Loan of Mr/Ms {$fullname}";
+
+        $data['loan'] = $loan;
+        $data['title'] = $name;
+
+        $pdf = new Pdf();
+
+        $html = view('pdf/claim_aquisition', $data);
+      
+        $pdf->load_view2_portrait(
+            $name,
+            $html
+        );
+    }
 
     public function sendLoanOTP()
     {
