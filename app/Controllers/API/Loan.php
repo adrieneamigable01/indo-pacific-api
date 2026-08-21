@@ -707,6 +707,20 @@ class Loan extends BaseController
     )
     {
 
+
+        $loan = $db->table('loans')
+                ->where('loan_id', $loanId)
+                ->get()
+                ->getRowArray();
+
+        if (!$loan) {
+
+            throw new \Exception(
+                'Loan not found.'
+            );
+
+        }
+
         $releaseDate = $releaseDate ?? date('Y-m-d');
 
         $db->table('loan_schedule')
@@ -1053,7 +1067,7 @@ class Loan extends BaseController
 
             case 3:
 
-                $monthlyInterest = $loanAmount * 0.03;
+                $monthlyInterest = $loanAmount * (float)$loan['approved_interest_rate'];
 
                 for ($i = 1; $i <= $loanTerms; $i++) {
 
