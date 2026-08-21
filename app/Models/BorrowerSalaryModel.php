@@ -25,92 +25,184 @@ class BorrowerSalaryModel extends Model
     protected $updatedField = 'updated_at';
 
 
+    // public function getBorrowerSalaryList(
+    //     $search = '',
+    //     $salaryMonth = null,
+    //     $start = 0,
+    //     $length = 10,
+    //     $orderColumn = 'borrower_name',
+    //     $orderDir = 'ASC'
+    // )
+    // {
+    //     $builder = $this->db->table('borrowers b');
+
+    //     $builder->select("
+    //         b.borrower_id,
+
+    //         CONCAT(
+    //             b.last_name,
+    //             ', ',
+    //             b.first_name,
+    //             ' ',
+    //             IFNULL(b.middle_name, '')
+    //         ) AS borrower_name,
+
+    //         s.salary_id,
+
+    //         s.salary_month,
+
+    //         IFNULL(s.gross_salary, 0) AS gross_salary,
+
+    //         IFNULL(s.atm_withdrawal_amount,0) AS atm_withdrawal_amount,
+
+    //         IFNULL(s.auto_debit_amount,0) AS auto_debit_amount,
+
+    //         IFNULL(s.remarks, '') AS remarks,
+
+    //         IFNULL(s.status, 'ACTIVE') AS status
+    //     ");
+
+    //     if (!empty($salaryMonth)) {
+
+    //        $builder->join(
+    //             'borrower_salary s',
+    //             "s.borrower_id = b.borrower_id
+    //             AND DATE_FORMAT(s.salary_month, '%Y-%m') = " . $this->db->escape($salaryMonth),
+    //             'left'
+    //         );
+
+    //     } else {
+
+    //         $builder->join(
+    //             'borrower_salary s',
+    //             's.borrower_id = b.borrower_id',
+    //             'left'
+    //         );
+
+    //     }
+
+    //     if (!empty($search)) {
+
+    //         $builder->groupStart()
+    //             ->like('b.first_name', $search)
+    //             ->orLike('b.middle_name', $search)
+    //             ->orLike('b.last_name', $search)
+    //             ->groupEnd();
+
+    //     }
+
+    //     $columns = [
+    //         'salary_id'     => 's.salary_id',
+    //         'borrower_name' => 'b.last_name',
+    //         'salary_month'  => 's.salary_month',
+    //         'gross_salary'  => 's.gross_salary',
+    //         'status'        => 's.status',
+    //         'remarks'       => 's.remarks'
+    //     ];
+
+    //     $builder->orderBy(
+    //         $columns[$orderColumn] ?? 'b.last_name',
+    //         $orderDir
+    //     );
+
+    //     if ((int)$length !== -1) {
+    //         $builder->limit((int)$length, (int)$start);
+    //     }
+
+    //     return $builder->get()->getResultArray();
+    // }
     public function getBorrowerSalaryList(
-        $search = '',
-        $salaryMonth = null,
-        $start = 0,
-        $length = 10,
-        $orderColumn = 'borrower_name',
-        $orderDir = 'ASC'
-    )
-    {
-        $builder = $this->db->table('borrowers b');
+    $search = '',
+    $salaryMonth = null,
+    $start = 0,
+    $length = 10,
+    $orderColumn = 'borrower_name',
+    $orderDir = 'ASC'
+) {
+    $builder = $this->db->table('borrowers b');
 
-        $builder->select("
-            b.borrower_id,
+    $builder->select("
+        b.borrower_id,
 
-            CONCAT(
-                b.last_name,
-                ', ',
-                b.first_name,
-                ' ',
-                IFNULL(b.middle_name, '')
-            ) AS borrower_name,
+        CONCAT(
+            b.last_name,
+            ', ',
+            b.first_name,
+            ' ',
+            IFNULL(b.middle_name, '')
+        ) AS borrower_name,
 
-            s.salary_id,
+        s.salary_id,
 
-            s.salary_month,
+        s.salary_month,
 
-            IFNULL(s.gross_salary, 0) AS gross_salary,
+        IFNULL(s.gross_salary, 0) AS gross_salary,
 
-            IFNULL(s.atm_withdrawal_amount,0) AS atm_withdrawal_amount,
+        IFNULL(s.atm_withdrawal_amount,0) AS atm_withdrawal_amount,
 
-            IFNULL(s.auto_debit_amount,0) AS auto_debit_amount,
+        IFNULL(s.auto_debit_amount,0) AS auto_debit_amount,
 
-            IFNULL(s.remarks, '') AS remarks,
+        IFNULL(s.remarks, '') AS remarks,
 
-            IFNULL(s.status, 'ACTIVE') AS status
-        ");
+        IFNULL(s.status, 'ACTIVE') AS status
+    ");
 
-        if (!empty($salaryMonth)) {
+    if (!empty($salaryMonth)) {
 
-           $builder->join(
-                'borrower_salary s',
-                "s.borrower_id = b.borrower_id
-                AND DATE_FORMAT(s.salary_month, '%Y-%m') = " . $this->db->escape($salaryMonth),
-                'left'
-            );
-
-        } else {
-
-            $builder->join(
-                'borrower_salary s',
-                's.borrower_id = b.borrower_id',
-                'left'
-            );
-
-        }
-
-        if (!empty($search)) {
-
-            $builder->groupStart()
-                ->like('b.first_name', $search)
-                ->orLike('b.middle_name', $search)
-                ->orLike('b.last_name', $search)
-                ->groupEnd();
-
-        }
-
-        $columns = [
-            'salary_id'     => 's.salary_id',
-            'borrower_name' => 'b.last_name',
-            'salary_month'  => 's.salary_month',
-            'gross_salary'  => 's.gross_salary',
-            'status'        => 's.status',
-            'remarks'       => 's.remarks'
-        ];
-
-        $builder->orderBy(
-            $columns[$orderColumn] ?? 'b.last_name',
-            $orderDir
+        $builder->join(
+            'borrower_salary s',
+            "s.borrower_id = b.borrower_id
+            AND DATE_FORMAT(s.salary_month, '%Y-%m') = " .
+            $this->db->escape($salaryMonth),
+            'left'
         );
 
-        if ((int)$length !== -1) {
-            $builder->limit((int)$length, (int)$start);
-        }
+    } else {
 
-        return $builder->get()->getResultArray();
+        $builder->join(
+            'borrower_salary s',
+            's.borrower_id = b.borrower_id',
+            'left'
+        );
+
     }
+
+    // ONLY ACTIVE BORROWERS
+    $builder->where('b.status', 'ACTIVE');
+
+    if (!empty($search)) {
+
+        $builder->groupStart()
+            ->like('b.first_name', $search)
+            ->orLike('b.middle_name', $search)
+            ->orLike('b.last_name', $search)
+            ->groupEnd();
+
+    }
+
+    $columns = [
+        'salary_id'     => 's.salary_id',
+        'borrower_name' => 'b.last_name',
+        'salary_month'  => 's.salary_month',
+        'gross_salary'  => 's.gross_salary',
+        'status'        => 's.status',
+        'remarks'       => 's.remarks'
+    ];
+
+    $builder->orderBy(
+        $columns[$orderColumn] ?? 'b.last_name',
+        $orderDir
+    );
+
+    if ((int) $length !== -1) {
+        $builder->limit(
+            (int) $length,
+            (int) $start
+        );
+    }
+
+    return $builder->get()->getResultArray();
+}
 
     public function getSalaries(
         $search = '',
