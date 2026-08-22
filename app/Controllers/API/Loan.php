@@ -1738,25 +1738,55 @@ class Loan extends BaseController
                 |--------------------------------------------------------------------------
                 */
 
-                $db->table('loan_payments')
-                    ->insert([
-                        'loan_id'          => $loanId,
-                        'schedule_id'      => $scheduleId,
-                        'payment_date'     => $input['payment_date'],
-                        'principal_amount' => $principalPaid,
-                        'interest_amount'  => $interestPaid,
-                        'penalty_amount'   => $penaltyPaid,
-                        'total_amount'     =>
-                            $principalPaid +
-                            $interestPaid +
-                            $penaltyPaid,
-                        'or_number'        =>
-                            $input['or_number'] ?? null,
-                        'remarks'          =>
-                            $input['remarks'] ?? null,
-                        'created_at'       =>
-                            date('Y-m-d H:i:s')
-                    ]);
+                /*
+                |--------------------------------------------------------------------------
+                | INSERT PAYMENT RECORD
+                |--------------------------------------------------------------------------
+                */
+
+                $paymentTotal =
+                    $principalPaid +
+                    $interestPaid +
+                    $penaltyPaid;
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Only insert if something was actually paid
+                |--------------------------------------------------------------------------
+                */
+
+                if ($paymentTotal > 0) {
+
+                    $db->table('loan_payments')
+                        ->insert([
+                            'loan_id'          => $loanId,
+                            'schedule_id'      => $scheduleId,
+                            'payment_date'     => $input['payment_date'],
+
+                            'principal_amount' =>
+                                $principalPaid,
+
+                            'interest_amount' =>
+                                $interestPaid,
+
+                            'penalty_amount' =>
+                                $penaltyPaid,
+
+                            'total_amount' =>
+                                $paymentTotal,
+
+                            'or_number' =>
+                                $input['or_number'] ?? null,
+
+                            'remarks' =>
+                                $input['remarks'] ?? null,
+
+                            'created_at' =>
+                                date('Y-m-d H:i:s')
+                        ]);
+
+                }
             }
 
             /*
@@ -5568,7 +5598,7 @@ class Loan extends BaseController
             $html
         );
     }
-    
+
     public function monthlyPaymentAcknowledgement()
     {
         $encodedData = $this->request->getGet('data');
