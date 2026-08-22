@@ -2021,7 +2021,7 @@ class CashierVaultModel extends Model
                 'created_by' =>
                     $data['created_by'],
 
-                'created_at' =>
+                'business_date' =>
                     $data['business_date'],
 
                 'is_active' =>
