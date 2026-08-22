@@ -85,6 +85,7 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     $routes->get('loan/addendum', 'API\\Loan::loanAddendum');
     $routes->get('loan/claim/aquisition', 'API\\Loan::loanClaimAquisition');
     $routes->get('loan/claim/aquisition-settlement', 'API\\Loan::settlementAcknowledgement');
+    $routes->get('loan/claim/monthly-aquisition-settlement', 'API\\Loan::monthlyPaymentAcknowledgement');
     $routes->post('loan/send-otp', 'API\\Loan::sendLoanOTP');
     $routes->post('loan/validate-otp', 'API\\Loan::validateLoanOTP');
     $routes->get(

@@ -4829,7 +4829,7 @@ class Loan extends BaseController
                             'SALARY DEDUCTION',
 
                         'status' =>
-                            'POSTED',
+                            'ACTIVE',
 
                         'created_at' =>
                             date('Y-m-d H:i:s')
@@ -5275,70 +5275,286 @@ class Loan extends BaseController
     {
         $settlementId = $this->request->getGet('settlement_id');
         $loanId       = $this->request->getGet('loan_id');
+        $encodedDetails = $this->request->getGet('details');
+
 
         if (empty($settlementId)) {
+
             return $this->response
                 ->setStatusCode(400)
-                ->setBody('Settlement ID is required.');
+                ->setBody(
+                    'Settlement ID is required.'
+                );
+
         }
 
-        if (empty($loanId)) {
+
+        if (empty($encodedDetails)) {
+
             return $this->response
                 ->setStatusCode(400)
-                ->setBody('Loan ID is required.');
+                ->setBody(
+                    'Settlement details are required.'
+                );
+
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Decode Details
+        |--------------------------------------------------------------------------
+        */
+
+        $decodedBase64 =
+            base64_decode(
+                $encodedDetails,
+                true
+            );
+
+
+        if ($decodedBase64 === false) {
+
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody(
+                    'Invalid settlement details encoding.'
+                );
+
+        }
+
+
+        $json = '';
+
+        for (
+            $i = 0;
+            $i < strlen($decodedBase64);
+            $i++
+        ) {
+
+            $json .=
+                '%' .
+                str_pad(
+                    dechex(
+                        ord(
+                            $decodedBase64[$i]
+                        )
+                    ),
+                    2,
+                    '0',
+                    STR_PAD_LEFT
+                );
+
+        }
+
+
+        $json =
+            urldecode($json);
+
+
+        $details =
+            json_decode(
+                $json,
+                true
+            );
+
+
+        if (
+            json_last_error() !== JSON_ERROR_NONE ||
+            !is_array($details)
+        ) {
+
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody(
+                    'Invalid settlement details JSON: ' .
+                    json_last_error_msg()
+                );
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DEBUG
+        |--------------------------------------------------------------------------
+        |
+        | Temporarily use this to confirm the data arrives.
+        |
+        */
+
+        // echo '<pre>';
+        // print_r($details);
+        // exit;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get Settlement
+        |--------------------------------------------------------------------------
+        */
 
         $db = db_connect();
 
-        // Get settlement
         $settlement = $db
             ->table('borrower_settlements')
-            ->where('settlement_id', $settlementId)
+            ->where(
+                'settlement_id',
+                $settlementId
+            )
             ->get()
             ->getRow();
+
 
         if (!$settlement) {
+
             return $this->response
                 ->setStatusCode(404)
-                ->setBody('Settlement not found.');
+                ->setBody(
+                    'Settlement not found.'
+                );
+
         }
 
-        // Get the specific settlement detail
-        $detail = $db
-            ->table('borrower_settlement_details')
-            ->where('settlement_id', $settlementId)
-            ->where('loan_id', $loanId)
-            ->get()
-            ->getRow();
 
-        if (!$detail) {
+        /*
+        |--------------------------------------------------------------------------
+        | Get Loan
+        |--------------------------------------------------------------------------
+        */
+
+        $primaryLoanId =
+            $loanId;
+
+        if (empty($primaryLoanId)) {
+
+            $primaryLoanId =
+                $details[0]['loan_id'] ?? null;
+
+        }
+
+
+        if (empty($primaryLoanId)) {
+
             return $this->response
-                ->setStatusCode(404)
-                ->setBody('Settlement detail not found.');
+                ->setStatusCode(400)
+                ->setBody(
+                    'Loan ID is required.'
+                );
+
         }
 
-        // Get loan
+
         $loanModel = new LoanModel();
 
-        $loan = $loanModel->getLoanDetails($loanId);
+        $loan =
+            $loanModel->getLoanDetails(
+                $primaryLoanId
+            );
+
 
         if (!$loan) {
+
             return $this->response
                 ->setStatusCode(404)
-                ->setBody('Loan not found.');
+                ->setBody(
+                    'Loan not found.'
+                );
+
         }
 
-        $fullname =
-            $loan['first_name'] . ' ' .
-            $loan['middle_name'] . ' ' .
-            $loan['last_name'];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Calculate Totals From Passed Details
+        |--------------------------------------------------------------------------
+        */
+
+        $totalAmount = 0;
+        $totalDue = 0;
+        $totalPaid = 0;
+        $totalUnpaid = 0;
+
+
+        foreach ($details as $detail) {
+
+            $totalAmount +=
+                (float) (
+                    $detail['amount'] ?? 0
+                );
+
+            $totalDue +=
+                (float) (
+                    $detail['due_amount'] ?? 0
+                );
+
+            $totalPaid +=
+                (float) (
+                    $detail['paid_amount'] ?? 0
+                );
+
+            $totalUnpaid +=
+                (float) (
+                    $detail['unpaid_amount'] ?? 0
+                );
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Borrower Name
+        |--------------------------------------------------------------------------
+        */
+
+        $fullname = trim(
+            ($loan['first_name'] ?? '') . ' ' .
+            ($loan['middle_name'] ?? '') . ' ' .
+            ($loan['last_name'] ?? '')
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF Data
+        |--------------------------------------------------------------------------
+        */
 
         $data = [
-            'settlement' => $settlement,
-            'detail'     => $detail,
-            'loan'       => $loan,
-            'title'      => "Settlement Acknowledgement - {$fullname}"
+
+            'settlement' =>
+                $settlement,
+
+            'details' =>
+                $details,
+
+            'loan' =>
+                $loan,
+
+            'totalAmount' =>
+                $totalAmount,
+
+            'totalDue' =>
+                $totalDue,
+
+            'totalPaid' =>
+                $totalPaid,
+
+            'totalUnpaid' =>
+                $totalUnpaid,
+
+            'title' =>
+                'Settlement Acknowledgement - ' .
+                $fullname
+
         ];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Generate PDF
+        |--------------------------------------------------------------------------
+        */
 
         $pdf = new Pdf();
 
@@ -5352,6 +5568,234 @@ class Loan extends BaseController
             $html
         );
     }
+    
+    public function monthlyPaymentAcknowledgement()
+    {
+        $encodedData = $this->request->getGet('data');
+
+        if (empty($encodedData)) {
+
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Payment data is required.');
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Decode Base64
+        |--------------------------------------------------------------------------
+        */
+
+        $json = base64_decode(
+            urldecode($encodedData)
+        );
+
+        if ($json === false) {
+
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Invalid payment data.');
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Decode JSON
+        |--------------------------------------------------------------------------
+        */
+
+        $payments = json_decode(
+            $json,
+            true
+        );
+
+        if (
+            !is_array($payments) ||
+            empty($payments)
+        ) {
+
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Invalid payment records.');
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | First Payment
+        |--------------------------------------------------------------------------
+        */
+
+        $firstPayment = $payments[0];
+
+        $loanId = $firstPayment['loan_id'] ?? null;
+
+        if (empty($loanId)) {
+
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Loan ID is missing.');
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get Loan
+        |--------------------------------------------------------------------------
+        */
+
+        $loanModel = new LoanModel();
+
+        $loan = $loanModel->getLoanDetails(
+            $loanId
+        );
+
+
+        if (!$loan) {
+
+            return $this->response
+                ->setStatusCode(404)
+                ->setBody('Loan record not found.');
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Additional Loan Information
+        |--------------------------------------------------------------------------
+        */
+
+        $loan['collateral'] =
+            $loanModel->getCollateral(
+                $loanId
+            );
+
+        $loan['comakers'] =
+            $loanModel->getComakers(
+                $loanId
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Calculate Payment Totals
+        |--------------------------------------------------------------------------
+        */
+
+        $totalPrincipal = 0;
+
+        $totalInterest = 0;
+
+        $totalPenalty = 0;
+
+        $totalPayment = 0;
+
+
+        foreach ($payments as $payment) {
+
+            $totalPrincipal += (float) (
+                $payment['principal_amount'] ?? 0
+            );
+
+            $totalInterest += (float) (
+                $payment['interest_amount'] ?? 0
+            );
+
+            $totalPenalty += (float) (
+                $payment['penalty_amount'] ?? 0
+            );
+
+            $totalPayment += (float) (
+                $payment['total_amount'] ?? 0
+            );
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Borrower Name
+        |--------------------------------------------------------------------------
+        */
+
+        $fullname = trim(
+            ($loan['first_name'] ?? '') . ' ' .
+            ($loan['middle_name'] ?? '') . ' ' .
+            ($loan['last_name'] ?? '')
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Payment Month
+        |--------------------------------------------------------------------------
+        */
+
+        $paymentMonth =
+            $firstPayment['payment_month'] ?? '';
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF Data
+        |--------------------------------------------------------------------------
+        */
+
+        $data = [
+
+            'payments' => $payments,
+
+            'loan' => $loan,
+
+            'borrower' => $fullname,
+
+            'paymentMonth' => $paymentMonth,
+
+            'totalPrincipal' => $totalPrincipal,
+
+            'totalInterest' => $totalInterest,
+
+            'totalPenalty' => $totalPenalty,
+
+            'totalPayment' => $totalPayment,
+
+            'representative' =>
+                $loanModel->getRepresentative(),
+
+            'title' =>
+                "Monthly Payment Acknowledgement - {$fullname}"
+
+        ];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Generate PDF
+        |--------------------------------------------------------------------------
+        */
+
+        $pdf = new Pdf();
+
+
+        $html = view(
+            'pdf/monthly_payment_acknowledgement',
+            $data
+        );
+
+
+        $pdf->load_view2_portrait(
+            $data['title'],
+            $html
+        );
+    }
+
+
 
     public function sendLoanOTP()
     {
