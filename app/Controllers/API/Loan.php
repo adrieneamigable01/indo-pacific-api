@@ -5271,6 +5271,88 @@ class Loan extends BaseController
         );
     }
 
+    public function settlementAcknowledgement()
+    {
+        $settlementId = $this->request->getGet('settlement_id');
+        $loanId       = $this->request->getGet('loan_id');
+
+        if (empty($settlementId)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Settlement ID is required.');
+        }
+
+        if (empty($loanId)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Loan ID is required.');
+        }
+
+        $db = db_connect();
+
+        // Get settlement
+        $settlement = $db
+            ->table('borrower_settlements')
+            ->where('settlement_id', $settlementId)
+            ->get()
+            ->getRow();
+
+        if (!$settlement) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setBody('Settlement not found.');
+        }
+
+        // Get the specific settlement detail
+        $detail = $db
+            ->table('borrower_settlement_details')
+            ->where('settlement_id', $settlementId)
+            ->where('loan_id', $loanId)
+            ->get()
+            ->getRow();
+
+        if (!$detail) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setBody('Settlement detail not found.');
+        }
+
+        // Get loan
+        $loanModel = new LoanModel();
+
+        $loan = $loanModel->getLoanDetails($loanId);
+
+        if (!$loan) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setBody('Loan not found.');
+        }
+
+        $fullname =
+            $loan['first_name'] . ' ' .
+            $loan['middle_name'] . ' ' .
+            $loan['last_name'];
+
+        $data = [
+            'settlement' => $settlement,
+            'detail'     => $detail,
+            'loan'       => $loan,
+            'title'      => "Settlement Acknowledgement - {$fullname}"
+        ];
+
+        $pdf = new Pdf();
+
+        $html = view(
+            'pdf/settlement_acknowledgement',
+            $data
+        );
+
+        $pdf->load_view2_portrait(
+            $data['title'],
+            $html
+        );
+    }
+
     public function sendLoanOTP()
     {
         helper('jwt');
