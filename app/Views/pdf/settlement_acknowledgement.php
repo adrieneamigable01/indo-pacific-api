@@ -6,15 +6,18 @@
 |--------------------------------------------------------------------------
 */
 
-$settlementId = $settlement->settlement_id ?? '';
-$borrowerId   = $settlement->borrower_id ?? '';
+$settlementId =
+    $settlement->settlement_id ?? '';
 
-$loanId = $detail->loan_id
-    ?? $settlement->settlement_loan_id
-    ?? '';
+$borrowerId =
+    $settlement->borrower_id ?? '';
 
-$productName = $detail->product_name
-    ?? 'Loan Settlement';
+
+/*
+|--------------------------------------------------------------------------
+| Settlement Month
+|--------------------------------------------------------------------------
+*/
 
 $settlementMonth = '';
 
@@ -34,48 +37,88 @@ if (!empty($settlement->settlement_month)) {
 |--------------------------------------------------------------------------
 */
 
-$borrowerName =
-    trim(
-        ($loan['first_name'] ?? '') . ' ' .
-        ($loan['middle_name'] ?? '') . ' ' .
-        ($loan['last_name'] ?? '')
+$borrowerName = trim(
+    ($loan['first_name'] ?? '') . ' ' .
+    ($loan['middle_name'] ?? '') . ' ' .
+    ($loan['last_name'] ?? '')
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Settlement Details
+|--------------------------------------------------------------------------
+*/
+
+$details = $details ?? [];
+
+
+/*
+|--------------------------------------------------------------------------
+| Totals
+|--------------------------------------------------------------------------
+*/
+
+$totalAmount = 0;
+
+$totalDue = 0;
+
+$totalPaid = 0;
+
+$totalUnpaid = 0;
+
+
+foreach ($details as $item) {
+
+    if (is_object($item)) {
+
+        $item = (array) $item;
+
+    }
+
+
+    $totalAmount += (float) (
+        $item['amount'] ?? 0
+    );
+
+
+    $totalDue += (float) (
+        $item['due_amount'] ?? 0
+    );
+
+
+    $totalPaid += (float) (
+        $item['paid_amount'] ?? 0
+    );
+
+
+    $totalUnpaid += (float) (
+        $item['unpaid_amount'] ?? 0
+    );
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Settlement Deficit
+|--------------------------------------------------------------------------
+*/
+
+$deficitAmount =
+    (float) (
+        $settlement->deficit_amount ?? 0
     );
 
 
 /*
 |--------------------------------------------------------------------------
-| Settlement Amounts
+| Settlement Status
 |--------------------------------------------------------------------------
 */
 
-$amount = (float) (
-    $detail->amount ?? 0
-);
-
-$dueAmount = (float) (
-    $detail->due_amount ?? 0
-);
-
-$paidAmount = (float) (
-    $detail->paid_amount ?? 0
-);
-
-$unpaidAmount = (float) (
-    $detail->unpaid_amount ?? 0
-);
-
-$deficitAmount = (float) (
-    $settlement->deficit_amount ?? 0
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Status
-|--------------------------------------------------------------------------
-*/
-
-$status = $settlement->status ?? '';
+$status =
+    $settlement->status ?? '';
 
 
 /*
@@ -84,30 +127,67 @@ $status = $settlement->status ?? '';
 |--------------------------------------------------------------------------
 */
 
-$settlementDate = '';
+$displaySettlementDate = '';
 
 if (!empty($settlement->settled_at)) {
 
-    $settlementDate = date(
+    $displaySettlementDate = date(
         'F d, Y',
-        strtotime($settlement->settled_at)
+        strtotime(
+            $settlement->settled_at
+        )
     );
 
 } elseif (!empty($settlement->created_at)) {
 
-    $settlementDate = date(
+    $displaySettlementDate = date(
         'F d, Y',
-        strtotime($settlement->created_at)
+        strtotime(
+            $settlement->created_at
+        )
     );
 
 } else {
 
-    $settlementDate = date('F d, Y');
+    $displaySettlementDate =
+        date('F d, Y');
 
 }
 
-?>
 
+/*
+|--------------------------------------------------------------------------
+| Loan IDs
+|--------------------------------------------------------------------------
+*/
+
+$loanIds = [];
+
+
+foreach ($details as $item) {
+
+    if (is_object($item)) {
+
+        $item = (array) $item;
+
+    }
+
+
+    if (!empty($item['loan_id'])) {
+
+        $loanIds[] =
+            $item['loan_id'];
+
+    }
+
+}
+
+
+$loanIds = array_values(
+    array_unique($loanIds)
+);
+
+?>
 
 <!DOCTYPE html>
 
@@ -118,203 +198,53 @@ if (!empty($settlement->settled_at)) {
     <meta charset="UTF-8">
 
     <title>
-        <?= esc($title ?? 'Settlement Acknowledgement') ?>
+        <?= esc(
+            $title ??
+            'Settlement Acknowledgement'
+        ) ?>
     </title>
-
-
-    <style>
-
-        body {
-
-            padding: 0;
-
-            margin: 0;
-
-            font-size: 17px;
-
-            font-family: Arial;
-            
-            letter-spacing: .3px;
-
-            text-align: justify;
-
-            line-height: 1.3;
-
-            padding-bottom: 30px;
-
-        }
-
-
-        .text-center {
-
-            text-align: center;
-
-        }
-
-
-        .text-right {
-
-            text-align: right;
-
-        }
-
-
-        .text-left {
-
-            text-align: left;
-
-        }
-
-
-        table {
-
-            border-collapse: collapse;
-
-        }
-
-
-        table.bordered {
-
-            width: 100%;
-
-            border-collapse: collapse;
-
-        }
-
-
-        table.bordered th,
-
-        table.bordered td {
-
-            border: 1px solid #000;
-
-            padding: 8px;
-
-        }
-
-
-        .table-header {
-
-            background-color: #b7b7b7;
-
-            font-weight: bold;
-
-        }
-
-
-        .amount {
-
-            text-align: right;
-
-        }
-
-
-        .total {
-
-            background-color: #b7b7b7;
-
-            font-weight: bold;
-
-        }
-
-
-        .small {
-
-            font-size: 12px;
-
-        }
-
-    </style>
 
 </head>
 
 
 <body
     style="
-        padding-left:35px;
-        padding-right:35px;
+        padding:35px;
+        margin:0;
+        font-size:16px;
+        letter-spacing:.3px;
+        text-align:justify;
+        line-height:1.3;
+        padding-bottom:30px;
     "
 >
 
 
-    <!-- ========================================================= -->
-    <!-- LOGO -->
-    <!-- ========================================================= -->
+<!-- ========================================================= -->
+<!-- HEADER -->
+<!-- ========================================================= -->
+
+<div
+    style="
+        text-align:center;
+    "
+>
 
     <div
-        class="text-center"
-        style="
-            position:absolute;
-            top:0;
-            left:0;
-            width:100%;
-        "
-    >
-
-        <?php
-
-        $logoPath =
-            FCPATH . 'assets/img/Logo.png';
-
-        if (file_exists($logoPath)):
-
-        ?>
-
-            <img
-                src="<?= $logoPath ?>"
-                style="
-                    width:100%;
-                    height:auto;
-                    opacity:.12;
-                "
-            >
-
-        <?php endif; ?>
-
-    </div>
-
-
-    <br>
-    <br>
-    <br>
-    <br>
-    <br>
-
-
-    <!-- ========================================================= -->
-    <!-- SETTLEMENT NUMBER -->
-    <!-- ========================================================= -->
-
-    <div
-        style="
-            text-align:right;
-        "
-    >
-
-        <b style="margin-right:38px;">
-
-            SETTLEMENT #
-
-            <?= esc($settlementId) ?>
-
-        </b>
-
-    </div>
-
-
-    <br>
-    <br>
-
-
-    <!-- ========================================================= -->
-    <!-- TITLE -->
-    <!-- ========================================================= -->
-
-    <div
-        class="text-center"
         style="
             font-weight:bold;
             font-size:20px;
+        "
+    >
+
+        INDO-PACIFIC LENDING CORPORATION
+
+    </div>
+
+
+    <div
+        style="
+            font-size:13px;
         "
     >
 
@@ -322,441 +252,836 @@ if (!empty($settlement->settled_at)) {
 
     </div>
 
-
-    <div
-        class="text-right"
-        style="font-weight:bold;"
-    >
-
-        <?= date('F d, Y') ?>
-
-    </div>
+</div>
 
 
-    <br>
-    <br>
+<br>
 
 
-    <!-- ========================================================= -->
-    <!-- ACKNOWLEDGEMENT -->
-    <!-- ========================================================= -->
+<!-- ========================================================= -->
+<!-- SETTLEMENT NUMBER -->
+<!-- ========================================================= -->
 
-    <div>
+<div
+    style="
+        text-align:right;
+        font-size:13px;
+    "
+>
 
-        This acknowledges the settlement of the loan obligation
-        of
+    <b>
+        Settlement No.:
+    </b>
 
-        <b>
+    <?= esc($settlementId) ?>
+
+</div>
+
+
+<div
+    style="
+        text-align:right;
+        font-size:13px;
+    "
+>
+
+    <b>
+        Date:
+    </b>
+
+    <?= date('F d, Y') ?>
+
+</div>
+
+
+<br>
+
+
+<!-- ========================================================= -->
+<!-- BORROWER INFORMATION -->
+<!-- ========================================================= -->
+
+<table
+    style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:13px;
+    "
+>
+
+    <tr>
+
+        <td
+            style="
+                padding:5px;
+                width:50%;
+            "
+        >
+
+            <b>
+                Borrower:
+            </b>
+
             <?= esc($borrowerName) ?>
-        </b>
 
-        with
+        </td>
 
-        <b>
-            INDO-PACIFIC LENDING CORPORATION
-        </b>
 
-        for the settlement period of
+        <td
+            style="
+                padding:5px;
+                width:50%;
+            "
+        >
 
-        <b>
+            <b>
+                Borrower ID:
+            </b>
+
+            <?= esc($borrowerId) ?>
+
+        </td>
+
+    </tr>
+
+
+    <tr>
+
+        <td
+            style="
+                padding:5px;
+            "
+        >
+
+            <b>
+                Settlement Month:
+            </b>
+
             <?= esc($settlementMonth) ?>
-        </b>.
 
-    </div>
-
-
-    <br>
+        </td>
 
 
-    <!-- ========================================================= -->
-    <!-- SETTLEMENT DETAILS -->
-    <!-- ========================================================= -->
+        <td
+            style="
+                padding:5px;
+            "
+        >
 
-    <table class="bordered">
+            <b>
+                Settlement Date:
+            </b>
 
-        <thead>
+            <?= esc($displaySettlementDate) ?>
 
-            <tr class="table-header">
+        </td>
 
-                <th>
-                    Particulars
-                </th>
-
-                <th>
-                    Type
-                </th>
-
-                <th>
-                    Due Amount
-                </th>
-
-                <th>
-                    Paid Amount
-                </th>
-
-                <th>
-                    Unpaid Amount
-                </th>
-
-            </tr>
-
-        </thead>
+    </tr>
 
 
-        <tbody>
+    <tr>
+
+        <td
+            style="
+                padding:5px;
+            "
+        >
+
+            <b>
+                Status:
+            </b>
+
+            <?= esc($status) ?>
+
+        </td>
+
+
+        <td
+            style="
+                padding:5px;
+            "
+        >
+
+            <b>
+                Loan IDs:
+            </b>
+
+            <?= esc(
+                implode(
+                    ', ',
+                    $loanIds
+                )
+            ) ?>
+
+        </td>
+
+    </tr>
+
+</table>
+
+
+<br>
+
+
+<!-- ========================================================= -->
+<!-- ACKNOWLEDGEMENT -->
+<!-- ========================================================= -->
+
+<div
+    style="
+        font-size:15px;
+        line-height:1.5;
+    "
+>
+
+    This acknowledges the settlement of the loan obligations
+    of
+
+    <b>
+        <?= esc($borrowerName) ?>
+    </b>
+
+    with
+
+    <b>
+        INDO-PACIFIC LENDING CORPORATION
+    </b>
+
+    for the settlement period of
+
+    <b>
+        <?= esc($settlementMonth) ?>
+    </b>.
+
+</div>
+
+
+<br>
+
+
+<!-- ========================================================= -->
+<!-- SETTLEMENT DETAILS -->
+<!-- ========================================================= -->
+
+<table
+    style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:11px;
+    "
+>
+
+    <thead>
+
+        <tr>
+
+            <th
+                style="
+                    border:1px solid #000;
+                    padding:8px;
+                    background-color:#b7b7b7;
+                    text-align:left;
+                "
+            >
+                Particulars
+            </th>
+
+
+            <th
+                style="
+                    border:1px solid #000;
+                    padding:8px;
+                    background-color:#b7b7b7;
+                    text-align:center;
+                "
+            >
+                Type
+            </th>
+
+
+            <th
+                style="
+                    border:1px solid #000;
+                    padding:8px;
+                    background-color:#b7b7b7;
+                    text-align:right;
+                "
+            >
+                Due Amount
+            </th>
+
+
+            <th
+                style="
+                    border:1px solid #000;
+                    padding:8px;
+                    background-color:#b7b7b7;
+                    text-align:right;
+                "
+            >
+                Paid Amount
+            </th>
+
+
+            <th
+                style="
+                    border:1px solid #000;
+                    padding:8px;
+                    background-color:#b7b7b7;
+                    text-align:right;
+                "
+            >
+                Unpaid Amount
+            </th>
+
+        </tr>
+
+    </thead>
+
+
+    <tbody>
+
+
+    <?php if (!empty($details)): ?>
+
+
+        <?php foreach ($details as $item): ?>
+
+            <?php
+
+            if (is_object($item)) {
+
+                $item = (array) $item;
+
+            }
+
+
+            $itemLoanId =
+                $item['loan_id'] ?? '';
+
+
+            $productName =
+                $item['product_name']
+                ?? 'Loan Settlement';
+
+
+            $itemDue =
+                (float) (
+                    $item['due_amount'] ?? 0
+                );
+
+
+            $itemPaid =
+                (float) (
+                    $item['paid_amount'] ?? 0
+                );
+
+
+            $itemUnpaid =
+                (float) (
+                    $item['unpaid_amount'] ?? 0
+                );
+
+            ?>
+
 
             <tr>
 
-                <td>
 
-                    <?= esc($productName) ?>
+                <!-- PARTICULARS -->
+
+                <td
+                    style="
+                        border:1px solid #000;
+                        padding:8px;
+                    "
+                >
+
+                    <b>
+                        <?= esc(
+                            $productName
+                        ) ?>
+                    </b>
 
                     <br>
 
-                    <span class="small">
+                    <span
+                        style="
+                            font-size:9px;
+                        "
+                    >
 
                         Loan ID:
-                        <?= esc($loanId) ?>
+                        <?= esc(
+                            $itemLoanId
+                        ) ?>
 
                     </span>
 
                 </td>
 
 
-                <td>
+                <!-- TYPE -->
+
+                <td
+                    style="
+                        border:1px solid #000;
+                        padding:8px;
+                        text-align:center;
+                    "
+                >
 
                     SETTLEMENT
 
                 </td>
 
 
-                <td class="amount">
+                <!-- DUE -->
+
+                <td
+                    style="
+                        border:1px solid #000;
+                        padding:8px;
+                        text-align:right;
+                    "
+                >
 
                     PHP
                     <?= number_format(
-                        $dueAmount,
+                        $itemDue,
                         2
                     ) ?>
 
                 </td>
 
 
-                <td class="amount">
+                <!-- PAID -->
+
+                <td
+                    style="
+                        border:1px solid #000;
+                        padding:8px;
+                        text-align:right;
+                    "
+                >
 
                     PHP
                     <?= number_format(
-                        $paidAmount,
+                        $itemPaid,
                         2
                     ) ?>
 
                 </td>
 
 
-                <td class="amount">
+                <!-- UNPAID -->
+
+                <td
+                    style="
+                        border:1px solid #000;
+                        padding:8px;
+                        text-align:right;
+                    "
+                >
 
                     PHP
                     <?= number_format(
-                        $unpaidAmount,
+                        $itemUnpaid,
                         2
                     ) ?>
 
                 </td>
+
 
             </tr>
 
 
-            <!-- TOTAL -->
-
-            <tr class="total">
-
-                <td colspan="2">
-
-                    TOTAL
-
-                </td>
+        <?php endforeach; ?>
 
 
-                <td class="amount">
+    <?php else: ?>
 
-                    PHP
-                    <?= number_format(
-                        $dueAmount,
-                        2
-                    ) ?>
-
-                </td>
-
-
-                <td class="amount">
-
-                    PHP
-                    <?= number_format(
-                        $paidAmount,
-                        2
-                    ) ?>
-
-                </td>
-
-
-                <td class="amount">
-
-                    PHP
-                    <?= number_format(
-                        $unpaidAmount,
-                        2
-                    ) ?>
-
-                </td>
-
-            </tr>
-
-        </tbody>
-
-    </table>
-
-
-    <br>
-
-
-    <!-- ========================================================= -->
-    <!-- SETTLEMENT INFORMATION -->
-    <!-- ========================================================= -->
-
-    <table
-        style="
-            width:100%;
-            font-size:13px;
-        "
-    >
 
         <tr>
 
-            <td>
+            <td
+                colspan="5"
+                style="
+                    border:1px solid #000;
+                    padding:10px;
+                    text-align:center;
+                "
+            >
 
-                <b>
-                    Settlement ID:
-                </b>
-
-                <?= esc($settlementId) ?>
-
-            </td>
-
-
-            <td>
-
-                <b>
-                    Borrower ID:
-                </b>
-
-                <?= esc($borrowerId) ?>
+                No settlement details found.
 
             </td>
 
         </tr>
 
-
-        <tr>
-
-            <td>
-
-                <b>
-                    Loan ID:
-                </b>
-
-                <?= esc($loanId) ?>
-
-            </td>
-
-
-            <td>
-
-                <b>
-                    Settlement Month:
-                </b>
-
-                <?= esc($settlementMonth) ?>
-
-            </td>
-
-        </tr>
-
-
-        <tr>
-
-            <td>
-
-                <b>
-                    Settlement Date:
-                </b>
-
-                <?= esc($settlementDate) ?>
-
-            </td>
-
-
-            <td>
-
-                <b>
-                    Status:
-                </b>
-
-                <?= esc($status) ?>
-
-            </td>
-
-        </tr>
-
-
-        <tr>
-
-            <td>
-
-                <b>
-                    Deficit Amount:
-                </b>
-
-                PHP
-                <?= number_format(
-                    $deficitAmount,
-                    2
-                ) ?>
-
-            </td>
-
-
-            <td>
-
-                <b>
-                    Settlement Amount:
-                </b>
-
-                PHP
-                <?= number_format(
-                    $amount,
-                    2
-                ) ?>
-
-            </td>
-
-        </tr>
-
-    </table>
-
-
-    <?php if (!empty($settlement->remarks)): ?>
-
-        <br>
-
-        <div
-            style="
-                font-size:13px;
-            "
-        >
-
-            <b>
-                Remarks:
-            </b>
-
-            <?= esc(
-                $settlement->remarks
-            ) ?>
-
-        </div>
 
     <?php endif; ?>
 
 
+    <!-- ===================================================== -->
+    <!-- TOTAL -->
+    <!-- ===================================================== -->
+
+    <tr>
+
+        <td
+            colspan="2"
+            style="
+                border:1px solid #000;
+                padding:8px;
+                background-color:#b7b7b7;
+                font-weight:bold;
+            "
+        >
+
+            TOTAL
+
+        </td>
+
+
+        <td
+            style="
+                border:1px solid #000;
+                padding:8px;
+                background-color:#b7b7b7;
+                font-weight:bold;
+                text-align:right;
+            "
+        >
+
+            PHP
+            <?= number_format(
+                $totalDue,
+                2
+            ) ?>
+
+        </td>
+
+
+        <td
+            style="
+                border:1px solid #000;
+                padding:8px;
+                background-color:#b7b7b7;
+                font-weight:bold;
+                text-align:right;
+            "
+        >
+
+            PHP
+            <?= number_format(
+                $totalPaid,
+                2
+            ) ?>
+
+        </td>
+
+
+        <td
+            style="
+                border:1px solid #000;
+                padding:8px;
+                background-color:#b7b7b7;
+                font-weight:bold;
+                text-align:right;
+            "
+        >
+
+            PHP
+            <?= number_format(
+                $totalUnpaid,
+                2
+            ) ?>
+
+        </td>
+
+    </tr>
+
+
+    </tbody>
+
+</table>
+
+
+<br>
+
+
+<!-- ========================================================= -->
+<!-- SETTLEMENT SUMMARY -->
+<!-- ========================================================= -->
+
+<table
+    style="
+        width:100%;
+        border-collapse:collapse;
+        font-size:13px;
+    "
+>
+
+    <tr>
+
+        <td
+            style="
+                padding:6px;
+                width:50%;
+            "
+        >
+
+            <b>
+                Total Due:
+            </b>
+
+            PHP
+            <?= number_format(
+                $totalDue,
+                2
+            ) ?>
+
+        </td>
+
+
+        <td
+            style="
+                padding:6px;
+                width:50%;
+            "
+        >
+
+            <b>
+                Total Paid:
+            </b>
+
+            PHP
+            <?= number_format(
+                $totalPaid,
+                2
+            ) ?>
+
+        </td>
+
+    </tr>
+
+
+    <tr>
+
+        <td
+            style="
+                padding:6px;
+            "
+        >
+
+            <b>
+                Total Unpaid:
+            </b>
+
+            PHP
+            <?= number_format(
+                $totalUnpaid,
+                2
+            ) ?>
+
+        </td>
+
+
+        <td
+            style="
+                padding:6px;
+            "
+        >
+
+            <b>
+                Settlement Amount:
+            </b>
+
+            PHP
+            <?= number_format(
+                $totalAmount,
+                2
+            ) ?>
+
+        </td>
+
+    </tr>
+
+
+    <tr>
+
+        <td
+            colspan="2"
+            style="
+                padding:6px;
+            "
+        >
+
+            <b>
+                Deficit Amount:
+            </b>
+
+            PHP
+            <?= number_format(
+                $deficitAmount,
+                2
+            ) ?>
+
+        </td>
+
+    </tr>
+
+</table>
+
+
+<?php if (!empty($settlement->remarks)): ?>
+
     <br>
-    <br>
 
-
-    <!-- ========================================================= -->
-    <!-- ACKNOWLEDGEMENT TEXT -->
-    <!-- ========================================================= -->
-
-    <div>
-
-        The above amount represents the recorded settlement
-        applicable to the identified loan and settlement period.
-
-        The borrower acknowledges the settlement details stated
-        herein.
-
-    </div>
-
-
-    <br>
-    <br>
-    <br>
-
-
-    <!-- ========================================================= -->
-    <!-- PROCESSED BY -->
-    <!-- ========================================================= -->
-
-    <div class="text-left">
+    <div
+        style="
+            font-size:13px;
+        "
+    >
 
         <b>
-            Process by:
+            Remarks:
         </b>
+
+        <?= esc(
+            $settlement->remarks
+        ) ?>
 
     </div>
 
-
-    <br>
-    <br>
+<?php endif; ?>
 
 
-    <!-- ========================================================= -->
-    <!-- SIGNATURES -->
-    <!-- ========================================================= -->
-
-    <table style="width:100%;">
-
-        <tr class="text-center">
+<br>
 
 
-            <!-- STAFF -->
+<!-- ========================================================= -->
+<!-- ACKNOWLEDGEMENT TEXT -->
+<!-- ========================================================= -->
 
-            <td style="width:50%;">
+<div
+    style="
+        font-size:14px;
+        line-height:1.5;
+    "
+>
 
-                <b>
+    The above details represent the recorded settlement
+    applicable to the identified loan obligations and
+    settlement period.
 
-                    <?= esc(
-                        $_SESSION['name'] ?? ''
-                    ) ?>
+    The borrower acknowledges the settlement details,
+    amounts paid, and remaining unpaid amounts stated
+    herein.
 
-                </b>
-
-                <br>
-
-                ( BPLC STAFF )
-
-            </td>
-
-
-            <!-- BORROWER -->
-
-            <td style="width:50%;">
-
-                <b>
-
-                    <?= esc(
-                        $borrowerName
-                    ) ?>
-
-                </b>
-
-                <br>
-
-                ( BORROWER )
-
-            </td>
+</div>
 
 
-        </tr>
+<br>
+<br>
 
-    </table>
+
+<!-- ========================================================= -->
+<!-- PROCESSED BY -->
+<!-- ========================================================= -->
+
+<div>
+
+    <b>
+        Processed by:
+    </b>
+
+</div>
+
+
+<br>
+<br>
+<br>
+
+
+<!-- ========================================================= -->
+<!-- SIGNATURES -->
+<!-- ========================================================= -->
+
+<table
+    style="
+        width:100%;
+        border-collapse:collapse;
+    "
+>
+
+    <tr>
+
+
+        <!-- STAFF -->
+
+        <td
+            style="
+                width:50%;
+                text-align:center;
+                vertical-align:top;
+            "
+        >
+
+            <b>
+
+                <?= esc(
+                    $_SESSION['name'] ?? ''
+                ) ?>
+
+            </b>
+
+            <br>
+            <br>
+
+            __________________________
+
+            <br>
+
+            ( BPLC STAFF )
+
+        </td>
+
+
+        <!-- BORROWER -->
+
+        <td
+            style="
+                width:50%;
+                text-align:center;
+                vertical-align:top;
+            "
+        >
+
+            <b>
+
+                <?= esc(
+                    $borrowerName
+                ) ?>
+
+            </b>
+
+            <br>
+            <br>
+
+            __________________________
+
+            <br>
+
+            ( BORROWER )
+
+        </td>
+
+
+    </tr>
+
+</table>
 
 
 </body>
