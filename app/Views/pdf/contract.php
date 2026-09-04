@@ -1029,9 +1029,10 @@ if (file_exists($path)) {
                             <td style="width:50%;">PRINCIPAL LOAN AMOUNT</td>
                             <td style="width:50%;"><?php echo number_format($amountData, 2, ".", ",") ?></td>
                         </tr>
+
                         <tr>
                             <td style="width:50%;">SERVICE CHARGE</td>
-                            <td style="width:50%;">0% of Principal Amount to be deducted by the LENDER from the proceeds.</td>
+                            <td style="width:50%;"><?php echo $loan['approved_processing_fee'] ?>% of Principal Amount to be deducted by the LENDER from the proceeds.</td>
                         </tr>
                         <tr>
                             <td style="width:50%;">INTEREST PAYMENT</td>
