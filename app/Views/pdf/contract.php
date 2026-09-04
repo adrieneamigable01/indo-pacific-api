@@ -499,7 +499,7 @@ if (file_exists($path)) {
             hereby jointly and severally promise/s to pay to the LENDER or order, the principal sum of
             <b><?php echo strtoupper(toText($amountData)) ?> PESOS</b>
             <b>(PHP. <?php echo number_format($amountData, 2, ".", ",") ?>)</b>, 
-            together with the <b>ONE POINT FIVE PERCENT (1.5%)</b> service charge on the principal amount and an interest 
+            together with the <b><?php echo strtoupper(percentageToWords((float)($loan['approved_processing_fee']))) ?> ((<?php echo $loan['approved_processing_fee'] ?>%))</b> service charge on the principal amount and an interest 
             rate of <b><?php echo strtoupper(percentageToWords((float)($loan['approved_interest_rate']))) ?> PERCENT (<?php echo $loan['approved_interest_rate'] ?>%)</b> PER MONTH OR <b><?php echo strtoupper(percentageToWords($loan['approved_interest_rate'] * 12)) ?> PERCENT (<?php echo $loan['approved_interest_rate'] * 12 ?>%)<</b> 
             PER ANNUM, subject further to the terms and conditions set forth below
         </div>
