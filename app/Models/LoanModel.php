@@ -444,6 +444,7 @@ class LoanModel extends Model
                         'schedule_id',
                         $schedule['schedule_id']
                     )
+                    ->where('status', 'ACTIVE')
                     ->get()
                     ->getRowArray();
 
