@@ -509,5 +509,89 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         );
 
     });
-   
+
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | BORROWER INCENTIVE ROUTES
+    |--------------------------------------------------------------------------
+    */
+
+    // ✅ SPECIFIC routes FIRST (before parameterized routes)
+    $routes->get(
+        'borrower-incentive/get/summary',
+        'API\\BorrowerIncentive::summary',
+        ['filter' => 'auth']
+    );
+
+    $routes->get(
+        'borrower-incentive/get/(:num)',
+        'API\\BorrowerIncentive::details/$1',
+        ['filter' => 'auth']
+    );
+
+    // ✅ GENERAL routes AFTER
+    $routes->get(
+        'borrower-incentive/get',
+        'API\\BorrowerIncentive::get',
+        ['filter' => 'auth']
+    );
+
+    $routes->post(
+        'borrower-incentive/save',
+        'API\\BorrowerIncentive::save',
+        ['filter' => 'auth']
+    );
+
+    $routes->post(
+        'borrower-incentive/save/bulk',
+        'API\\BorrowerIncentive::bulkSave',
+        ['filter' => 'auth']
+    );
+
+    $routes->delete(
+        'borrower-incentive/delete/(:num)',
+        'API\\BorrowerIncentive::delete/$1',
+        ['filter' => 'auth']
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | INCENTIVE TYPE ROUTES
+    |--------------------------------------------------------------------------
+    */
+
+    // ✅ Use consistent naming: incentive-type (with hyphen)
+    $routes->get(
+        'incentive-type/get',
+        'API\\IncentiveType::get',
+        ['filter' => 'auth']
+    );
+
+    $routes->get(
+        'incentive-type/dropdown',
+        'API\\IncentiveType::getForDropdown',
+        ['filter' => 'auth']
+    );
+
+    $routes->get(
+        'incentive-type/details/(:num)',
+        'API\\IncentiveType::details/$1',
+        ['filter' => 'auth']
+    );
+
+    $routes->post(
+        'incentive-type/save',
+        'API\\IncentiveType::save',
+        ['filter' => 'auth']
+    );
+
+    $routes->delete(
+        'incentive-type/delete/(:num)',
+        'API\\IncentiveType::delete/$1',
+        ['filter' => 'auth']
+    );
+    $routes->get('incentive/type/dropdown', 'API\IncentiveType::getForDropdown', ['filter' => 'auth']);
 }); 
