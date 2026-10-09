@@ -432,282 +432,282 @@ class BorrowerIncentive extends BaseController
     */
 
     public function bulkSave()
-{
-    $db = null;
+    {
+        $db = null;
 
-    try {
+        try {
 
-        /*
-        |--------------------------------------------------------------------------
-        | DEBUG: Log received data
-        |--------------------------------------------------------------------------
-        */
-        log_message('debug', '=== BULK SAVE DEBUG START ===');
-        log_message('debug', 'Content-Type: ' . $this->request->getHeaderLine('Content-Type'));
-        log_message('debug', 'Raw Body: ' . $this->request->getBody());
-        log_message('debug', 'POST Data: ' . print_r($_POST, true));
-        
-        if (isset($_POST['incentives']) && is_array($_POST['incentives'])) {
-            log_message('debug', 'Incentives count: ' . count($_POST['incentives']));
-            if (count($_POST['incentives']) > 0) {
-                log_message('debug', 'First incentive: ' . print_r($_POST['incentives'][0], true));
-            }
-        }
-        
-        log_message('debug', '=== BULK SAVE DEBUG END ===');
-
-        /*
-        |--------------------------------------------------------------------------
-        | Get input - supports both JSON and form-encoded POST
-        |--------------------------------------------------------------------------
-        */
-        
-        $input = null;
-        
-        $contentType = $this->request->getHeaderLine('Content-Type');
-        
-        if (strpos($contentType, 'application/json') !== false) {
-            $rawBody = $this->request->getBody();
-            $input = json_decode($rawBody, true);
+            /*
+            |--------------------------------------------------------------------------
+            | DEBUG: Log received data
+            |--------------------------------------------------------------------------
+            */
+            log_message('debug', '=== BULK SAVE DEBUG START ===');
+            log_message('debug', 'Content-Type: ' . $this->request->getHeaderLine('Content-Type'));
+            log_message('debug', 'Raw Body: ' . $this->request->getBody());
+            log_message('debug', 'POST Data: ' . print_r($_POST, true));
             
-            if (json_last_error() !== JSON_ERROR_NONE) {
+            if (isset($_POST['incentives']) && is_array($_POST['incentives'])) {
+                log_message('debug', 'Incentives count: ' . count($_POST['incentives']));
+                if (count($_POST['incentives']) > 0) {
+                    log_message('debug', 'First incentive: ' . print_r($_POST['incentives'][0], true));
+                }
+            }
+            
+            log_message('debug', '=== BULK SAVE DEBUG END ===');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Get input - supports both JSON and form-encoded POST
+            |--------------------------------------------------------------------------
+            */
+            
+            $input = null;
+            
+            $contentType = $this->request->getHeaderLine('Content-Type');
+            
+            if (strpos($contentType, 'application/json') !== false) {
+                $rawBody = $this->request->getBody();
+                $input = json_decode($rawBody, true);
+                
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    return $this->response->setJSON([
+                        'isError' => true,
+                        'message' => 'Invalid JSON: ' . json_last_error_msg()
+                    ]);
+                }
+            }
+            
+            if (empty($input)) {
+                $input = $this->request->getPost();
+            }
+
+            if (empty($input)) {
                 return $this->response->setJSON([
                     'isError' => true,
-                    'message' => 'Invalid JSON: ' . json_last_error_msg()
+                    'message' => 'Invalid request. No data received.'
                 ]);
             }
-        }
-        
-        if (empty($input)) {
-            $input = $this->request->getPost();
-        }
 
-        if (empty($input)) {
-            return $this->response->setJSON([
-                'isError' => true,
-                'message' => 'Invalid request. No data received.'
-            ]);
-        }
+            $incentiveMonthInput = $input['incentive_month'] ?? '';
+            $incentives = $input['incentives'] ?? [];
 
-        $incentiveMonthInput = $input['incentive_month'] ?? '';
-        $incentives = $input['incentives'] ?? [];
-
-        if (empty($incentiveMonthInput)) {
-            return $this->response->setJSON([
-                'isError' => true,
-                'message' => 'Incentive month is required.'
-            ]);
-        }
-
-        if (empty($incentives)) {
-            return $this->response->setJSON([
-                'isError' => true,
-                'message' => 'No incentive records found.'
-            ]);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Convert 2026-03 to 2026-03-20
-        |--------------------------------------------------------------------------
-        */
-        $incentiveMonth = date('Y-m-20', strtotime($incentiveMonthInput . '-01'));
-
-        if (!$incentiveMonth) {
-            return $this->response->setJSON([
-                'isError' => true,
-                'message' => 'Invalid incentive month format.'
-            ]);
-        }
-
-        $db = \Config\Database::connect();
-        $db->transBegin();
-
-        $updatedCount = 0;
-        $insertedCount = 0;
-        $skippedCount = 0;
-
-        foreach ($incentives as $index => $incentive) {
-
-            $incentiveId = $incentive['incentive_id'] ?? null;
-            $borrowerId = (int) ($incentive['borrower_id'] ?? 0);
-            $incentiveTypeId = (int) ($incentive['incentive_type_id'] ?? 0);
-            $incentiveAmount = (float) ($incentive['incentive_amount'] ?? 0);
-
-            // Handle empty incentive_id
-            if ($incentiveId === '' || $incentiveId === 'null' || $incentiveId === null) {
-                $incentiveId = null;
+            if (empty($incentiveMonthInput)) {
+                return $this->response->setJSON([
+                    'isError' => true,
+                    'message' => 'Incentive month is required.'
+                ]);
             }
 
-            if ($borrowerId <= 0) {
-                throw new Exception('Invalid borrower ID at record #' . ($index + 1));
-            }
-
-            if ($incentiveAmount < 0) {
-                throw new Exception('Incentive amount cannot be negative at record #' . ($index + 1));
+            if (empty($incentives)) {
+                return $this->response->setJSON([
+                    'isError' => true,
+                    'message' => 'No incentive records found.'
+                ]);
             }
 
             /*
             |--------------------------------------------------------------------------
-            | CASE 1: UPDATE existing record (incentive_id is provided)
+            | Convert 2026-03 to 2026-03-20
             |--------------------------------------------------------------------------
             */
-            if (!empty($incentiveId)) {
+            $incentiveMonth = date('Y-m-20', strtotime($incentiveMonthInput . '-01'));
 
-                $incentiveId = (int) $incentiveId;
+            if (!$incentiveMonth) {
+                return $this->response->setJSON([
+                    'isError' => true,
+                    'message' => 'Invalid incentive month format.'
+                ]);
+            }
 
-                // Check if record exists
-                $existingRecord = $this->incentiveModel->find($incentiveId);
-                
-                if (!$existingRecord) {
-                    throw new Exception('Record #' . ($index + 1) . ': incentive_id ' . $incentiveId . ' not found');
+            $db = \Config\Database::connect();
+            $db->transBegin();
+
+            $updatedCount = 0;
+            $insertedCount = 0;
+            $skippedCount = 0;
+
+            foreach ($incentives as $index => $incentive) {
+
+                $incentiveId = $incentive['incentive_id'] ?? null;
+                $borrowerId = (int) ($incentive['borrower_id'] ?? 0);
+                $incentiveTypeId = (int) ($incentive['incentive_type_id'] ?? 0);
+                $incentiveAmount = (float) ($incentive['incentive_amount'] ?? 0);
+
+                // Handle empty incentive_id
+                if ($incentiveId === '' || $incentiveId === 'null' || $incentiveId === null) {
+                    $incentiveId = null;
                 }
 
-                $data = [
-                    'borrower_id' => $borrowerId,
-                    'incentive_month' => $incentiveMonth,
-                    'incentive_amount' => $incentiveAmount,
-                    'remarks' => trim($incentive['remarks'] ?? ''),
-                    'status' => $incentive['status'] ?? 'PENDING'
-                    // ❌ DO NOT change incentive_type_id on UPDATE
-                ];
-
-                $this->incentiveModel->update($incentiveId, $data);
-
-                if (!empty($this->incentiveModel->errors())) {
-                    throw new Exception('Record #' . ($index + 1) . ': ' . implode(', ', $this->incentiveModel->errors()));
+                if ($borrowerId <= 0) {
+                    throw new Exception('Invalid borrower ID at record #' . ($index + 1));
                 }
 
-                $updatedCount++;
-                log_message('debug', 'Updated record #' . $index . ' with incentive_id=' . $incentiveId);
+                if ($incentiveAmount < 0) {
+                    throw new Exception('Incentive amount cannot be negative at record #' . ($index + 1));
+                }
 
-            } 
-            /*
-            |--------------------------------------------------------------------------
-            | CASE 2: INSERT new record (no incentive_id, but has incentive_type_id)
-            |--------------------------------------------------------------------------
-            */
-            else {
+                /*
+                |--------------------------------------------------------------------------
+                | CASE 1: UPDATE existing record (incentive_id is provided)
+                |--------------------------------------------------------------------------
+                */
+                if (!empty($incentiveId)) {
 
-                // ✅ incentive_type_id is REQUIRED for INSERT
-                if ($incentiveTypeId <= 0) {
-                    // Try to get existing incentive_type_id from database for this borrower+month
-                    $existingForBorrower = $this->incentiveModel
-                        ->where('borrower_id', $borrowerId)
-                        ->where('incentive_month', $incentiveMonth)
-                        ->first();
+                    $incentiveId = (int) $incentiveId;
 
-                    if ($existingForBorrower) {
-                        // Use existing incentive_type_id
-                        $incentiveTypeId = (int) $existingForBorrower['incentive_type_id'];
-                        log_message('debug', 'Using existing incentive_type_id=' . $incentiveTypeId . ' for borrower ' . $borrowerId);
-                    } else {
-                        throw new Exception('Record #' . ($index + 1) . ': incentive_type_id is required for new records');
+                    // Check if record exists
+                    $existingRecord = $this->incentiveModel->find($incentiveId);
+                    
+                    if (!$existingRecord) {
+                        throw new Exception('Record #' . ($index + 1) . ': incentive_id ' . $incentiveId . ' not found');
                     }
-                }
 
-                // Check for duplicate: borrower + type + month
-                $existingDuplicate = $this->incentiveModel
-                    ->where('borrower_id', $borrowerId)
-                    ->where('incentive_type_id', $incentiveTypeId)
-                    ->where('incentive_month', $incentiveMonth)
-                    ->first();
-
-                if ($existingDuplicate) {
-                    // ✅ UPDATE existing instead of INSERT
                     $data = [
                         'borrower_id' => $borrowerId,
                         'incentive_month' => $incentiveMonth,
-                        'incentive_type_id' => $incentiveTypeId,
                         'incentive_amount' => $incentiveAmount,
                         'remarks' => trim($incentive['remarks'] ?? ''),
                         'status' => $incentive['status'] ?? 'PENDING'
+                        // ❌ DO NOT change incentive_type_id on UPDATE
                     ];
 
-                    $this->incentiveModel->update($existingDuplicate['incentive_id'], $data);
+                    $this->incentiveModel->update($incentiveId, $data);
 
                     if (!empty($this->incentiveModel->errors())) {
                         throw new Exception('Record #' . ($index + 1) . ': ' . implode(', ', $this->incentiveModel->errors()));
                     }
 
                     $updatedCount++;
-                    log_message('debug', 'Updated existing duplicate record #' . $index . ' with incentive_id=' . $existingDuplicate['incentive_id']);
+                    log_message('debug', 'Updated record #' . $index . ' with incentive_id=' . $incentiveId);
 
-                } else {
-                    // ✅ INSERT new record
-                    $data = [
-                        'borrower_id' => $borrowerId,
-                        'incentive_month' => $incentiveMonth,
-                        'incentive_type_id' => $incentiveTypeId,
-                        'incentive_amount' => $incentiveAmount,
-                        'remarks' => trim($incentive['remarks'] ?? ''),
-                        'status' => $incentive['status'] ?? 'PENDING'
-                    ];
+                } 
+                /*
+                |--------------------------------------------------------------------------
+                | CASE 2: INSERT new record (no incentive_id, but has incentive_type_id)
+                |--------------------------------------------------------------------------
+                */
+                else {
 
-                    $this->incentiveModel->insert($data);
+                    // ✅ incentive_type_id is REQUIRED for INSERT
+                    if ($incentiveTypeId <= 0) {
+                        // Try to get existing incentive_type_id from database for this borrower+month
+                        $existingForBorrower = $this->incentiveModel
+                            ->where('borrower_id', $borrowerId)
+                            ->where('incentive_month', $incentiveMonth)
+                            ->first();
 
-                    if (!empty($this->incentiveModel->errors())) {
-                        throw new Exception('Record #' . ($index + 1) . ': ' . implode(', ', $this->incentiveModel->errors()));
+                        if ($existingForBorrower) {
+                            // Use existing incentive_type_id
+                            $incentiveTypeId = (int) $existingForBorrower['incentive_type_id'];
+                            log_message('debug', 'Using existing incentive_type_id=' . $incentiveTypeId . ' for borrower ' . $borrowerId);
+                        } else {
+                            throw new Exception('Record #' . ($index + 1) . ': incentive_type_id is required for new records');
+                        }
                     }
 
-                    $insertedCount++;
-                    log_message('debug', 'Inserted new record #' . $index . ' for borrower ' . $borrowerId);
+                    // Check for duplicate: borrower + type + month
+                    $existingDuplicate = $this->incentiveModel
+                        ->where('borrower_id', $borrowerId)
+                        ->where('incentive_type_id', $incentiveTypeId)
+                        ->where('incentive_month', $incentiveMonth)
+                        ->first();
+
+                    if ($existingDuplicate) {
+                        // ✅ UPDATE existing instead of INSERT
+                        $data = [
+                            'borrower_id' => $borrowerId,
+                            'incentive_month' => $incentiveMonth,
+                            'incentive_type_id' => $incentiveTypeId,
+                            'incentive_amount' => $incentiveAmount,
+                            'remarks' => trim($incentive['remarks'] ?? ''),
+                            'status' => $incentive['status'] ?? 'PENDING'
+                        ];
+
+                        $this->incentiveModel->update($existingDuplicate['incentive_id'], $data);
+
+                        if (!empty($this->incentiveModel->errors())) {
+                            throw new Exception('Record #' . ($index + 1) . ': ' . implode(', ', $this->incentiveModel->errors()));
+                        }
+
+                        $updatedCount++;
+                        log_message('debug', 'Updated existing duplicate record #' . $index . ' with incentive_id=' . $existingDuplicate['incentive_id']);
+
+                    } else {
+                        // ✅ INSERT new record
+                        $data = [
+                            'borrower_id' => $borrowerId,
+                            'incentive_month' => $incentiveMonth,
+                            'incentive_type_id' => $incentiveTypeId,
+                            'incentive_amount' => $incentiveAmount,
+                            'remarks' => trim($incentive['remarks'] ?? ''),
+                            'status' => $incentive['status'] ?? 'PENDING'
+                        ];
+
+                        $this->incentiveModel->insert($data);
+
+                        if (!empty($this->incentiveModel->errors())) {
+                            throw new Exception('Record #' . ($index + 1) . ': ' . implode(', ', $this->incentiveModel->errors()));
+                        }
+
+                        $insertedCount++;
+                        log_message('debug', 'Inserted new record #' . $index . ' for borrower ' . $borrowerId);
+                    }
+
                 }
 
             }
 
-        }
+            if ($db->transStatus() === false) {
+                $db->transRollback();
+                return $this->response->setJSON([
+                    'isError' => true,
+                    'message' => 'Unable to save incentive records. Database transaction failed.'
+                ]);
+            }
 
-        if ($db->transStatus() === false) {
-            $db->transRollback();
+            $db->transCommit();
+
+            $message = 'Successfully processed ' . ($updatedCount + $insertedCount) . ' record(s).';
+            $details = [];
+            
+            if ($updatedCount > 0) {
+                $details[] = $updatedCount . ' updated';
+            }
+            if ($insertedCount > 0) {
+                $details[] = $insertedCount . ' inserted';
+            }
+            if ($skippedCount > 0) {
+                $details[] = $skippedCount . ' skipped';
+            }
+            
+            if (!empty($details)) {
+                $message .= ' (' . implode(', ', $details) . ')';
+            }
+
+            return $this->response->setJSON([
+                'isError' => false,
+                'message' => $message,
+                'updated' => $updatedCount,
+                'inserted' => $insertedCount,
+                'skipped' => $skippedCount
+            ]);
+
+        } catch (\Throwable $e) {
+
+            if ($db !== null && $db->transStatus() === false) {
+                $db->transRollback();
+            }
+
+            log_message('error', 'BulkSave Error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+
             return $this->response->setJSON([
                 'isError' => true,
-                'message' => 'Unable to save incentive records. Database transaction failed.'
+                'message' => $e->getMessage()
             ]);
+
         }
-
-        $db->transCommit();
-
-        $message = 'Successfully processed ' . ($updatedCount + $insertedCount) . ' record(s).';
-        $details = [];
-        
-        if ($updatedCount > 0) {
-            $details[] = $updatedCount . ' updated';
-        }
-        if ($insertedCount > 0) {
-            $details[] = $insertedCount . ' inserted';
-        }
-        if ($skippedCount > 0) {
-            $details[] = $skippedCount . ' skipped';
-        }
-        
-        if (!empty($details)) {
-            $message .= ' (' . implode(', ', $details) . ')';
-        }
-
-        return $this->response->setJSON([
-            'isError' => false,
-            'message' => $message,
-            'updated' => $updatedCount,
-            'inserted' => $insertedCount,
-            'skipped' => $skippedCount
-        ]);
-
-    } catch (\Throwable $e) {
-
-        if ($db !== null && $db->transStatus() === false) {
-            $db->transRollback();
-        }
-
-        log_message('error', 'BulkSave Error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-
-        return $this->response->setJSON([
-            'isError' => true,
-            'message' => $e->getMessage()
-        ]);
-
     }
-}
 
     /*
     |--------------------------------------------------------------------------
