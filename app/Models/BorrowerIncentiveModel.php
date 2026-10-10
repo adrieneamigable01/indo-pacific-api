@@ -295,7 +295,11 @@ class BorrowerIncentiveModel extends Model
 
         $builder->join('borrowers b', 'b.borrower_id = bi.borrower_id', 'left');
         $builder->join('incentive_types it', 'it.id = bi.incentive_type_id', 'left');
-
+    
+        $builder->groupStart()
+        ->where('bi.status', 'PENDING')
+        ->orWhere('bi.status', 'PAID')
+        ->groupEnd();
         // Filter by borrower
         if (!empty($borrowerId)) {
             $builder->where('bi.borrower_id', (int) $borrowerId);
