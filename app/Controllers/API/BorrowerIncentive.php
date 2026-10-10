@@ -850,4 +850,410 @@ class BorrowerIncentive extends BaseController
 
         }
     }
+
+    public function getReport()
+    {
+        try {
+
+            $borrowerId = $this->request->getGet('borrower_id') ?: null;
+            $year = $this->request->getGet('year') ?: date('Y');
+            $incentiveTypeId = $this->request->getGet('incentive_type_id') ?: null;
+
+            if (empty($year) || !is_numeric($year)) {
+                return $this->response->setJSON([
+                    'isError' => true,
+                    'message' => 'Invalid year.'
+                ]);
+            }
+
+            $records = $this->incentiveModel->getIncentivesReport(
+                $borrowerId,
+                (int) $year,
+                $incentiveTypeId
+            );
+
+            // Calculate summary
+            $totalAmount = 0;
+            $totalPaid = 0;
+            $totalPending = 0;
+
+            foreach ($records as $record) {
+                $amount = (float) ($record['incentive_amount'] ?? 0);
+                $totalAmount += $amount;
+
+                if (strtoupper($record['status'] ?? '') === 'PAID') {
+                    $totalPaid += $amount;
+                } elseif (strtoupper($record['status'] ?? '') === 'PENDING') {
+                    $totalPending += $amount;
+                }
+            }
+
+            return $this->response->setJSON([
+                'isError' => false,
+                'data' => [
+                    'records' => $records,
+                    'summary' => [
+                        'totalRecords' => count($records),
+                        'totalAmount' => $totalAmount,
+                        'totalPaid' => $totalPaid,
+                        'totalPending' => $totalPending
+                    ]
+                ]
+            ]);
+
+        } catch (\Throwable $e) {
+
+            log_message('error', 'Incentive Report Error: ' . $e->getMessage());
+
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => $e->getMessage()
+            ]);
+
+        }
+    }
+
+
+    public function getIncentivesReport($borrowerId = null, $year = null, $incentiveTypeId = null)
+    {
+        $builder = $this->db->table('borrower_incentive bi');
+
+        $builder->select('
+            bi.incentive_id,
+            bi.borrower_id,
+            bi.incentive_month,
+            bi.incentive_type_id,
+            bi.incentive_type,
+            bi.incentive_amount,
+            bi.status,
+            bi.remarks,
+            CONCAT(b.last_name, ", ", b.first_name) AS borrower_name,
+            it.name AS incentive_type_name
+        ');
+
+        $builder->join('borrowers b', 'b.borrower_id = bi.borrower_id', 'left');
+        $builder->join('incentive_types it', 'it.id = bi.incentive_type_id', 'left');
+
+        // Filter by borrower
+        if (!empty($borrowerId)) {
+            $builder->where('bi.borrower_id', (int) $borrowerId);
+        }
+
+        // Filter by year
+        if (!empty($year)) {
+            $builder->where('YEAR(bi.incentive_month)', (int) $year);
+        }
+
+        // Filter by incentive type
+        if (!empty($incentiveTypeId)) {
+            $builder->where('bi.incentive_type_id', (int) $incentiveTypeId);
+        }
+
+        // Order by month desc, then borrower name
+        $builder->orderBy('bi.incentive_month', 'DESC');
+        $builder->orderBy('b.last_name', 'ASC');
+
+        $result = $builder->get();
+
+        if ($result === false) {
+            log_message('error', 'Incentives Report Query Failed: ' . $this->db->getError());
+            return [];
+        }
+
+        return $result->getResultArray();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE INCENTIVE STATUS
+    |--------------------------------------------------------------------------
+    */
+    public function updateStatus()
+    {
+        try {
+
+            $incentiveId = (int) ($this->request->getPost('incentive_id') ?? 0);
+            $newStatus = strtoupper(trim($this->request->getPost('status') ?? ''));
+
+            // ✅ Manual validation instead of using in_list
+            if ($incentiveId <= 0) {
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => 'Invalid incentive ID.'
+                ]);
+            }
+
+            $validStatuses = ['PENDING', 'PAID', 'CANCELLED'];
+            if (!in_array($newStatus, $validStatuses, true)) {
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => 'Invalid status. Must be PENDING, PAID, or CANCELLED.'
+                ]);
+            }
+
+            // Check if incentive exists
+            $incentive = $this->incentiveModel->find($incentiveId);
+
+            if (!$incentive) {
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => 'Incentive record not found.'
+                ]);
+            }
+
+            // Prevent changing already PAID to PENDING (optional business rule)
+            $oldStatus = strtoupper($incentive['status'] ?? '');
+            if ($oldStatus === 'PAID' && $newStatus === 'PENDING') {
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => 'Cannot change PAID incentive back to PENDING.'
+                ]);
+            }
+
+            // Update status
+            $this->incentiveModel->update($incentiveId, [
+                'status' => $newStatus
+            ]);
+
+            if (!empty($this->incentiveModel->errors())) {
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => implode(', ', $this->incentiveModel->errors())
+                ]);
+            }
+
+            return $this->getResponse([
+                'isError' => false,
+                'message' => 'Incentive status updated successfully.',
+                'data' => [
+                    'incentive_id' => $incentiveId,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus
+                ]
+            ]);
+
+        } catch (\Throwable $e) {
+
+            log_message('error', 'Update Incentive Status Error: ' . $e->getMessage());
+
+            return $this->getResponse([
+                'isError' => true,
+                'message' => $e->getMessage()
+            ]);
+
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE INCENTIVE VOUCHER PDF
+    |--------------------------------------------------------------------------
+    */
+    public function generateVoucher()
+    {
+        $encodedData = $this->request->getGet('data');
+
+        if (empty($encodedData)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Incentive data is required.');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Decode Base64
+        |--------------------------------------------------------------------------
+        */
+        $json = base64_decode(urldecode($encodedData));
+
+        if ($json === false) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Invalid incentive data.');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Decode JSON
+        |--------------------------------------------------------------------------
+        */
+        $incentiveData = json_decode($json, true);
+
+        if (!is_array($incentiveData) || empty($incentiveData)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Invalid incentive records.');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get Incentive ID
+        |--------------------------------------------------------------------------
+        */
+        $incentiveId = $incentiveData['incentive_id'] ?? null;
+
+        if (empty($incentiveId)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Incentive ID is missing.');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get Incentive Details from Database
+        |--------------------------------------------------------------------------
+        */
+        $incentive = $this->incentiveModel->getIncentive($incentiveId);
+
+        if (!$incentive) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setBody('Incentive record not found.');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get Borrower Details
+        |--------------------------------------------------------------------------
+        */
+        $borrowerModel = new \App\Models\BorrowerModel();
+        $borrower = $borrowerModel->find($incentive['borrower_id']);
+
+        if (!$borrower) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setBody('Borrower record not found.');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Format Borrower Name
+        |--------------------------------------------------------------------------
+        */
+        $borrowerName = trim(
+            ($borrower['first_name'] ?? '') . ' ' .
+            ($borrower['middle_name'] ?? '') . ' ' .
+            ($borrower['last_name'] ?? '')
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Format Amount
+        |--------------------------------------------------------------------------
+        */
+        $incentiveAmount = (float) ($incentive['incentive_amount'] ?? 0);
+        $amountInWords = $this->numberToWords($incentiveAmount);
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF Data
+        |--------------------------------------------------------------------------
+        */
+        $data = [
+            'incentive' => $incentive,
+            'borrower' => $borrower,
+            'borrowerName' => $borrowerName,
+            'incentiveAmount' => $incentiveAmount,
+            'amountInWords' => $amountInWords,
+            'voucherNumber' => 'INC-' . str_pad($incentiveId, 6, '0', STR_PAD_LEFT) . '-' . date('Y'),
+            'dateGenerated' => date('F d, Y'),
+            'title' => "Incentive Voucher - {$borrowerName}"
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Generate PDF
+        |--------------------------------------------------------------------------
+        */
+        $pdf = new \App\Libraries\Pdf(); // Adjust namespace as needed
+
+        $html = view('pdf/incentive_voucher', $data);
+
+        $pdf->load_view2_portrait($data['title'], $html);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helper: Convert Number to Words
+    |--------------------------------------------------------------------------
+    */
+    private function numberToWords($number)
+    {
+        $number = (float) $number;
+        $integer = floor($number);
+        $decimal = round(($number - $integer) * 100);
+
+        $words = $this->integerToWords($integer);
+
+        if ($decimal > 0) {
+            $words .= ' AND ' . $this->integerToWords($decimal) . ' CENTAVOS';
+        }
+
+        return $words . ' ONLY';
+    }
+
+    private function integerToWords($num)
+    {
+        if ($num == 0) return 'ZERO';
+
+        $ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
+        $tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+        $teens = ['TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+
+        $numString = (string) $num;
+        $length = strlen($numString);
+        $words = [];
+
+        if ($length >= 7) {
+            $millions = substr($numString, 0, $length - 6);
+            if ((int) $millions > 0) {
+                $words[] = $this->integerToWords((int) $millions) . ' MILLION';
+            }
+            $numString = substr($numString, $length - 6);
+            $length = strlen($numString);
+        }
+
+        if ($length >= 4) {
+            $thousands = substr($numString, 0, $length - 3);
+            if ((int) $thousands > 0) {
+                $words[] = $this->integerToWords((int) $thousands) . ' THOUSAND';
+            }
+            $numString = substr($numString, $length - 3);
+            $length = strlen($numString);
+        }
+
+        if ($length >= 3) {
+            $hundreds = substr($numString, 0, 1);
+            if ((int) $hundreds > 0) {
+                $words[] = $ones[(int) $hundreds] . ' HUNDRED';
+            }
+            $numString = substr($numString, 1);
+            $length = strlen($numString);
+        }
+
+        if ($length >= 2) {
+            $tensDigit = substr($numString, 0, 1);
+            $onesDigit = substr($numString, 1, 1);
+
+            if ((int) $tensDigit == 1) {
+                $words[] = $teens[(int) $onesDigit];
+            } else {
+                if ((int) $tensDigit > 1) {
+                    $words[] = $tens[(int) $tensDigit];
+                }
+                if ((int) $onesDigit > 0) {
+                    $words[] = $ones[(int) $onesDigit];
+                }
+            }
+        } elseif ($length == 1) {
+            if ((int) $numString > 0) {
+                $words[] = $ones[(int) $numString];
+            }
+        }
+
+        return implode(' ', $words);
+    }
+
 }

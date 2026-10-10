@@ -594,4 +594,11 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         ['filter' => 'auth']
     );
     $routes->get('incentive/type/dropdown', 'API\IncentiveType::getForDropdown', ['filter' => 'auth']);
+
+    $routes->get('borrower-incentive/report', 'API\BorrowerIncentive::getReport', ['filter' => 'auth']);
+
+    // Update incentive status
+    $routes->post('borrower-incentive/update-status', 'API\BorrowerIncentive::updateStatus', ['filter' => 'auth']);
+
+    $routes->get('borrower-incentive/voucher', 'API\BorrowerIncentive::generateVoucher');
 }); 

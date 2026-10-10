@@ -271,4 +271,57 @@ class BorrowerIncentiveModel extends Model
 
         return $result->getRowArray();
     }
+    /*
+    |--------------------------------------------------------------------------
+    | GET INCENTIVES REPORT
+    |--------------------------------------------------------------------------
+    */
+    public function getIncentivesReport($borrowerId = null, $year = null, $incentiveTypeId = null)
+    {
+        $builder = $this->db->table('borrower_incentive bi');
+
+        $builder->select('
+            bi.incentive_id,
+            bi.borrower_id,
+            bi.incentive_month,
+            bi.incentive_type_id,
+            bi.incentive_type,
+            bi.incentive_amount,
+            bi.status,
+            bi.remarks,
+            CONCAT(b.last_name, ", ", b.first_name) AS borrower_name,
+            it.name AS incentive_type_name
+        ');
+
+        $builder->join('borrowers b', 'b.borrower_id = bi.borrower_id', 'left');
+        $builder->join('incentive_types it', 'it.id = bi.incentive_type_id', 'left');
+
+        // Filter by borrower
+        if (!empty($borrowerId)) {
+            $builder->where('bi.borrower_id', (int) $borrowerId);
+        }
+
+        // Filter by year
+        if (!empty($year)) {
+            $builder->where('YEAR(bi.incentive_month)', (int) $year);
+        }
+
+        // Filter by incentive type
+        if (!empty($incentiveTypeId)) {
+            $builder->where('bi.incentive_type_id', (int) $incentiveTypeId);
+        }
+
+        // Order by month desc, then borrower name
+        $builder->orderBy('bi.incentive_month', 'DESC');
+        $builder->orderBy('b.last_name', 'ASC');
+
+        $result = $builder->get();
+
+        if ($result === false) {
+            log_message('error', 'Incentives Report Query Failed: ' . $this->db->getError());
+            return [];
+        }
+
+        return $result->getResultArray();
+    }
 }
