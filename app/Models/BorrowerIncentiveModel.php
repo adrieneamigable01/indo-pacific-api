@@ -26,6 +26,7 @@ class BorrowerIncentiveModel extends Model
     protected $dateFormat    = 'datetime';
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
+    protected $takenAtField  = 'taken_at';
 
     public function getBorrowerIncentiveList(
         $search = '',
@@ -50,6 +51,8 @@ class BorrowerIncentiveModel extends Model
         $builder->select('
             bi.incentive_id,
             b.borrower_id,
+            bi.taken_at,
+            bi.updated_at,
             CONCAT(b.last_name, ", ", b.first_name) AS borrower_name,
             bi.incentive_type_id,
             it.name AS incentive_type_name,
