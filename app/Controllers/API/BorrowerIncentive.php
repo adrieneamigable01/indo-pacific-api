@@ -973,8 +973,9 @@ class BorrowerIncentive extends BaseController
     {
         try {
 
-            $incentiveId = (int) ($this->request->getPost('incentive_id') ?? 0);
-            $newStatus = strtoupper(trim($this->request->getPost('status') ?? ''));
+            $incentiveId    = (int) ($this->request->getPost('incentive_id') ?? 0);
+            $newStatus      = strtoupper(trim($this->request->getPost('status') ?? ''));
+            $remarks        = strtoupper(trim($this->request->getPost('remarks') ?? ''));
 
             // ✅ Manual validation instead of using in_list
             if ($incentiveId <= 0) {
@@ -990,6 +991,18 @@ class BorrowerIncentive extends BaseController
                     'isError' => true,
                     'message' => 'Invalid status. Must be PENDING, PAID, or CANCELLED.'
                 ]);
+            }
+
+            // ✅ Auto-generate remarks when status is PAID
+            if ($newStatus === 'PAID') {
+                $autoRemarks = 'Taken incentives for the date of ' . date('F d, Y');
+                
+                // Append custom remarks if provided
+                if (!empty($remarks)) {
+                    $remarks = $autoRemarks . ' - ' . $remarks;
+                } else {
+                    $remarks = $autoRemarks;
+                }
             }
 
             // Check if incentive exists
@@ -1028,6 +1041,7 @@ class BorrowerIncentive extends BaseController
                 'message' => 'Incentive status updated successfully.',
                 'data' => [
                     'incentive_id' => $incentiveId,
+                    'incentive' => $incentive,
                     'old_status' => $oldStatus,
                     'new_status' => $newStatus
                 ]

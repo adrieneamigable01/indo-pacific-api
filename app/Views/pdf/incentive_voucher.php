@@ -66,7 +66,7 @@ $incentiveType = $incentive['incentive_type_name'] ?? $incentive['incentive_type
 <table style="width:100%; border-collapse:collapse;">
     <tr>
         <td style="width:50%; text-align:left;">
-            <b>Voucher No.:</b> <?= esc($voucherNumber) ?>
+            <b>Incentive Statement No.:</b> <?= esc($voucherNumber) ?>
         </td>
         <td style="width:50%; text-align:right;">
             <b>Date:</b> <?= esc($dateGenerated) ?>
@@ -206,7 +206,7 @@ $incentiveType = $incentive['incentive_type_name'] ?? $incentive['incentive_type
 <div style="text-align:center; font-size:10px; color:#666; margin-top:30px;">
     <i>This is a computer-generated voucher. No signature is required from the issuer.</i>
     <br>
-    <i>Voucher No: <?= esc($voucherNumber) ?> | Generated: <?= date('Y-m-d H:i:s') ?></i>
+    <i>Incentive Statement No: <?= esc($voucherNumber) ?> | Generated: <?= date('Y-m-d H:i:s') ?></i>
 </div>
 
 </body>
