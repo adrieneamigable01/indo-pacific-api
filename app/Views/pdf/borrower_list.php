@@ -4,6 +4,58 @@
     <meta charset="UTF-8">
     <title><?= esc($title) ?></title>
     <style>
+        /* ========================================================= */
+        /* HEADER WITH LOGO AND COMPANY NAME */
+        /* ========================================================= */
+        .header-box {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .logo-cell {
+            width: 15%;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .logo-cell img {
+            max-width: 80px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .company-cell {
+            width: 70%;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .company-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #000;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+        
+        .company-tagline {
+            font-size: 10px;
+            color: #666;
+            margin: 5px 0 0 0;
+            font-style: italic;
+        }
+        
+        .date-cell {
+            width: 15%;
+            text-align: right;
+            vertical-align: middle;
+            font-size: 9px;
+            color: #666;
+        }
         body {
             font-family: Arial, sans-serif;
             font-size: 11px;
@@ -86,6 +138,24 @@
 <!-- ========================================================= -->
 <!-- TITLE -->
 <!-- ========================================================= -->
+
+
+<!-- ========================================================= -->
+<!-- HEADER WITH LOGO AND COMPANY NAME -->
+<!-- ========================================================= -->
+
+<table class="header-box">
+    <tr>
+        <td class="logo-cell">
+            <img src="https://indopacificlending.doitcebutech.com/assets/img/logo.png" 
+                 alt="Indo Pacific Logo" 
+                 onerror="this.style.display='none'">
+        </td>
+        <td class="company-cell">
+            <p class="company-name">INDO-PACIFIC LENDING CORPORATION</p>
+        </td>
+    </tr>
+</table>
 
 <div class="title-box">
     <?= esc($title) ?>
