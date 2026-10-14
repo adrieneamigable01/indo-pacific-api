@@ -138,21 +138,6 @@
                 </tr>
             <?php endforeach; ?>
             
-            <?php 
-            // Fill empty rows to complete the page
-            $remainingInPage = $chunkSize - count($chunk);
-            for ($i = 0; $i < $remainingInPage; $i++): 
-                $globalIndex++;
-            ?>
-                <tr>
-                    <td class="number-col"><?= $globalIndex ?></td>
-                    <td class="name-col"></td>
-                    <td class="withdrawal-col"></td>
-                    <td class="withdrawal-col"></td>
-                    <td class="withdrawal-col"></td>
-                </tr>
-            <?php endfor; ?>
-            
         <?php endforeach; ?>
     </tbody>
 </table>
