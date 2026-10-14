@@ -50,6 +50,86 @@ class Borrower extends BaseController
         }
     }
 
+    public function generateBorrowerList()
+    {
+        // Get title from POST or GET
+        $postedTitle = $this->request->getPost('title');
+        $getTitle = $this->request->getGet('title');
+        
+        if (!empty($postedTitle)) {
+            $title = $postedTitle;
+        } elseif (!empty($getTitle)) {
+            $title = urldecode($getTitle);
+        } else {
+            $title = 'Indo Pacific Borrowers List';
+        }
+
+        // Get manually entered names from POST
+        $manualNames = $this->request->getPost('names');
+        $names = [];
+        
+        if (is_array($manualNames)) {
+            $names = array_merge($names, $manualNames);
+        }
+
+        // Connect to database
+        $db = db_connect();
+
+        // Get active borrowers
+        $borrowers = $db->table('borrowers')
+            ->where('isActive', 1)
+            ->orderBy('last_name', 'ASC')
+            ->orderBy('first_name', 'ASC')
+            ->get()
+            ->getResult();
+
+        // Optional: Exclude delinquent borrowers (add borrower_ids to exclude)
+        $delinquent = [
+            // Add borrower IDs to exclude here
+            // Example: 522, 417, 424, 336, 173, 212, 392, 379, 373, 95, 109, 160, 337, 310, 353, 349, 397, 469, 136, 58, 202, 381, 397, 11, 378, 421, 536
+        ];
+
+        foreach ($borrowers as $borrower) {
+            // Skip if in delinquent list
+            if (!empty($delinquent) && in_array($borrower->borrower_id, $delinquent)) {
+                continue;
+            }
+
+            // Format borrower name: LASTNAME, FIRSTNAME MIDDLENAME
+            $fullName = trim(
+                strtoupper($borrower->last_name) . ', ' . 
+                strtoupper($borrower->first_name) . ' ' . 
+                strtoupper($borrower->middle_name ?? '')
+            );
+
+            $names[] = $fullName;
+        }
+
+        // Remove blanks and duplicates, then sort
+        $names = array_filter(array_map('trim', $names));
+        $names = array_unique($names);
+        sort($names);
+
+        // Prepare PDF data
+        $data = [
+            'title' => $title,
+            'names' => $names,
+            'totalCount' => count($names),
+            'generatedDate' => date('F d, Y h:i A')
+        ];
+
+        // Generate PDF
+        $pdf = new \App\Libraries\Pdf(); // Adjust namespace as needed
+
+        $html = view('pdf/borrower_list', $data);
+
+        // Safe filename
+        $safeFilename = preg_replace('/[^A-Za-z0-9 _-]/', '', $title);
+        $safeFilename = trim($safeFilename) ?: 'Borrower_List';
+
+        $pdf->load_view2_portrait($safeFilename, $html);
+    }
+
     public function getAll()
     {
         try {

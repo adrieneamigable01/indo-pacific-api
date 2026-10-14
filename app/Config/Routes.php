@@ -601,4 +601,6 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     $routes->post('borrower-incentive/update-status', 'API\BorrowerIncentive::updateStatus', ['filter' => 'auth']);
 
     $routes->get('borrower-incentive/voucher', 'API\BorrowerIncentive::generateVoucher');
+
+    $routes->get('borrower/generate-list', 'API\Borrower::generateBorrowerList');
 }); 
