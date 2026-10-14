@@ -5295,11 +5295,12 @@ class Loan extends BaseController
             $data
         );
 
-        $pdf->load_view2_portrait(
+        $pdf->load_folio_portrait(
             $name,
             $html
         );
     }
+    
 
     public function settlementAcknowledgement()
     {

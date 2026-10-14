@@ -31,4 +31,28 @@ class Pdf
         echo $dompdf->output();
         exit;
     }
+
+
+    public function load_folio_portrait($filename, $html)
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', true);
+
+        $dompdf = new Dompdf($options);
+
+        $dompdf->setPaper('folio', 'portrait');
+        $dompdf->loadHtml($html);
+        $dompdf->render();
+
+        header("Content-Type: application/pdf");
+        header("Content-Disposition: inline; filename=\"{$filename}.pdf\"");
+        header("Content-Length: " . strlen($dompdf->output()));
+
+        echo $dompdf->output();
+        exit;
+    }
 }
