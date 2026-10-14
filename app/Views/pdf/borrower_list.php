@@ -122,7 +122,7 @@
         
         foreach ($chunks as $chunkIndex => $chunk): 
             if ($chunkIndex > 0): ?>
-                <tr><td colspan="5" class="page-break"></td></tr>
+               
             <?php endif; ?>
             
             <?php foreach ($chunk as $name): 
