@@ -52,19 +52,25 @@ class Borrower extends BaseController
 
     public function generateBorrowerList()
     {
-        // Get title from POST or GET
-        $postedTitle = $this->request->getPost('title');
-        $getTitle = $this->request->getGet('title');
-        
-        if (!empty($postedTitle)) {
-            $title = $postedTitle;
-        } elseif (!empty($getTitle)) {
-            $title = urldecode($getTitle);
-        } else {
-            $title = 'Indo Pacific Borrowers List';
+        // ✅ Get title from GET parameter
+        $title = $this->request->getGet('title');
+
+        // If no title provided, show error or use default
+        if (empty($title)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setBody('Title parameter is required. Example: /borrower/generate-list?title=My%20Borrower%20List');
         }
 
-        // Get manually entered names from POST
+        // Decode URL-encoded title
+        $title = urldecode($title);
+
+        // ✅ Get optional filters from GET
+        $search = $this->request->getGet('search') ?? '';
+        $status = $this->request->getGet('status') ?? '';
+        $gender = $this->request->getGet('gender') ?? '';
+
+        // Get manually entered names (optional, from POST if needed)
         $manualNames = $this->request->getPost('names');
         $names = [];
         
@@ -72,30 +78,48 @@ class Borrower extends BaseController
             $names = array_merge($names, $manualNames);
         }
 
-        // Connect to database
         $db = db_connect();
-
-        // Get active borrowers
-        $borrowers = $db->table('borrowers')
-            ->where('isActive', 1)
+        $builder = $db->table('borrowers');
+        
+        // Base filter: active only
+        $builder->where('isActive', 1);
+        $builder->where('isPrintIncluded', 1);
+        // Apply additional filters
+        if (!empty($search)) {
+            $builder->groupStart()
+                ->like('last_name', $search)
+                ->orLike('first_name', $search)
+                ->orLike('middle_name', $search)
+                ->orLike('mobile_no', $search)
+                ->groupEnd();
+        }
+        
+        if (!empty($status)) {
+            $builder->where('status', $status);
+        }
+        
+        if (!empty($gender)) {
+            $builder->where('gender', $gender);
+        }
+        
+        
+        // Get borrowers
+        $borrowers = $builder
             ->orderBy('last_name', 'ASC')
             ->orderBy('first_name', 'ASC')
             ->get()
             ->getResult();
 
-        // Optional: Exclude delinquent borrowers (add borrower_ids to exclude)
+        // Delinquent list (optional - add borrower IDs to exclude)
         $delinquent = [
-            // Add borrower IDs to exclude here
             // Example: 522, 417, 424, 336, 173, 212, 392, 379, 373, 95, 109, 160, 337, 310, 353, 349, 397, 469, 136, 58, 202, 381, 397, 11, 378, 421, 536
         ];
 
         foreach ($borrowers as $borrower) {
-            // Skip if in delinquent list
             if (!empty($delinquent) && in_array($borrower->borrower_id, $delinquent)) {
                 continue;
             }
 
-            // Format borrower name: LASTNAME, FIRSTNAME MIDDLENAME
             $fullName = trim(
                 strtoupper($borrower->last_name) . ', ' . 
                 strtoupper($borrower->first_name) . ' ' . 
@@ -105,7 +129,9 @@ class Borrower extends BaseController
             $names[] = $fullName;
         }
 
-        // Remove blanks and duplicates, then sort
+        
+
+        // Clean and sort
         $names = array_filter(array_map('trim', $names));
         $names = array_unique($names);
         sort($names);
@@ -115,18 +141,22 @@ class Borrower extends BaseController
             'title' => $title,
             'names' => $names,
             'totalCount' => count($names),
-            'generatedDate' => date('F d, Y h:i A')
+            'generatedDate' => date('F d, Y h:i A'),
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+                'gender' => $gender
+            ]
         ];
 
         // Generate PDF
         $pdf = new \App\Libraries\Pdf(); // Adjust namespace as needed
-
         $html = view('pdf/borrower_list', $data);
-
-        // Safe filename
+        
+        // Safe filename for download
         $safeFilename = preg_replace('/[^A-Za-z0-9 _-]/', '', $title);
         $safeFilename = trim($safeFilename) ?: 'Borrower_List';
-
+        
         $pdf->load_view2_portrait($safeFilename, $html);
     }
 
