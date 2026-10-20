@@ -2912,7 +2912,7 @@ class CashierVault extends BaseController
 
         }
 
-        // SORT TRANSACTIONS: LATEST DATE TO OLDEST DATE
+        // SORT TRANSACTIONS: OLDEST DATE TO LATEST DATE
         usort($rows, function ($a, $b) {
             $dateA = !empty($a['business_date'])
                 ? strtotime($a['business_date'])
@@ -2922,7 +2922,7 @@ class CashierVault extends BaseController
                 ? strtotime($b['business_date'])
                 : 0;
 
-            return $dateB <=> $dateA;
+            return $dateA <=> $dateB;
         });
 
         /*
