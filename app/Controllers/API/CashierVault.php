@@ -3069,7 +3069,7 @@ class CashierVault extends BaseController
             $sheet->setCellValue(
                 "A{$dataRow}",
                 !empty($row['business_date'])
-                    ? date('m/d/Y', strtotime($row['business_date']))
+                    ? date('m/d/Y H:i:s', strtotime($row['business_date']))
                     : ''
             );
 
