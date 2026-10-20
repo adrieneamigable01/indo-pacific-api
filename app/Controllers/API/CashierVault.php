@@ -2912,6 +2912,17 @@ class CashierVault extends BaseController
 
         }
 
+        foreach ($rows as $row) {
+            $remarks = trim($row['remarks'] ?? '');
+
+            if (stripos($remarks, 'Approved Daily Close') !== false) {
+                $dailyCloseRows[] = $row;
+            } else {
+                $normalRows[] = $row;
+            }
+        }
+
+
         // SORT TRANSACTIONS: OLDEST DATE TO LATEST DATE
         usort($rows, function ($a, $b) {
             $dateA = !empty($a['business_date'])
@@ -2924,7 +2935,7 @@ class CashierVault extends BaseController
 
             return $dateA <=> $dateB;
         });
-
+        $rows = array_merge($normalRows, $dailyCloseRows);
         /*
         |--------------------------------------------------------------------------
         | CREATE SPREADSHEET
