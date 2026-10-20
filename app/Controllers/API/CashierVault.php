@@ -2912,15 +2912,7 @@ class CashierVault extends BaseController
 
         }
 
-        foreach ($rows as $row) {
-            $remarks = trim($row['remarks'] ?? '');
-
-            if (stripos($remarks, 'Approved Daily Close') !== false) {
-                $dailyCloseRows[] = $row;
-            } else {
-                $normalRows[] = $row;
-            }
-        }
+       
 
 
         // SORT TRANSACTIONS: OLDEST DATE TO LATEST DATE
@@ -2935,6 +2927,17 @@ class CashierVault extends BaseController
 
             return $dateA <=> $dateB;
         });
+
+        foreach ($rows as $row) {
+            $remarks = trim($row['remarks'] ?? '');
+
+            if (stripos($remarks, 'Approved Daily Close') !== false) {
+                $dailyCloseRows[] = $row;
+            } else {
+                $normalRows[] = $row;
+            }
+        }
+
         $rows = array_merge($normalRows, $dailyCloseRows);
         /*
         |--------------------------------------------------------------------------
