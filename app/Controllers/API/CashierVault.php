@@ -2912,6 +2912,19 @@ class CashierVault extends BaseController
 
         }
 
+        // SORT TRANSACTIONS: LATEST DATE TO OLDEST DATE
+        usort($rows, function ($a, $b) {
+            $dateA = !empty($a['business_date'])
+                ? strtotime($a['business_date'])
+                : 0;
+
+            $dateB = !empty($b['business_date'])
+                ? strtotime($b['business_date'])
+                : 0;
+
+            return $dateB <=> $dateA;
+        });
+
         /*
         |--------------------------------------------------------------------------
         | CREATE SPREADSHEET
