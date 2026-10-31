@@ -464,24 +464,6 @@ class LoanModel extends Model
                         $schedule['principal_due']
                         -
                         $schedule['principal_paid']
-                    )
-
-                    +
-
-                    max(
-                        0,
-                        $schedule['interest_due']
-                        -
-                        $schedule['interest_paid']
-                    )
-
-                    +
-
-                    max(
-                        0,
-                        $schedule['penalty_due']
-                        -
-                        $schedule['penalty_paid']
                     );
 
                 if(
