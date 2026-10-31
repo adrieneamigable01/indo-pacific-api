@@ -1547,7 +1547,7 @@ class Loan extends BaseController
             $db->transBegin();
 
             $loanId = (int)$input['loan_id'];
-            $scheduleId = $schedule['schedule_id'];
+            $scheduleId = (int)$input['schedule_id'];
             $amount = (float)$input['amount'];
 
             $remainingPayment = $amount;
