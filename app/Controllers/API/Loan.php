@@ -1547,12 +1547,14 @@ class Loan extends BaseController
             $db->transBegin();
 
             $loanId = (int)$input['loan_id'];
+            $schedule_id = (int)$input['schedule_id'];
             $amount = (float)$input['amount'];
 
             $remainingPayment = $amount;
 
             $schedules = $db->table('loan_schedule')
             ->where('loan_id', $input['loan_id'])
+            ->where('schedule_id', $input['schedule_id'])
             ->orderBy('due_date', 'ASC')
             ->get()
             ->getResultArray();
