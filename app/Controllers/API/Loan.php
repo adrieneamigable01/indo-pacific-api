@@ -1594,43 +1594,43 @@ class Loan extends BaseController
                 $interestPaid = 0;
                 $principalPaid = 0;
 
-                /*
-                |--------------------------------------------------------------------------
-                | PENALTY FIRST
-                |--------------------------------------------------------------------------
-                */
+                // /*
+                // |--------------------------------------------------------------------------
+                // | PENALTY FIRST
+                // |--------------------------------------------------------------------------
+                // */
 
-                if (
-                    $remainingPayment > 0 &&
-                    $penaltyRemaining > 0
-                ) {
+                // if (
+                //     $remainingPayment > 0 &&
+                //     $penaltyRemaining > 0
+                // ) {
 
-                    $penaltyPaid = min(
-                        $remainingPayment,
-                        $penaltyRemaining
-                    );
+                //     $penaltyPaid = min(
+                //         $remainingPayment,
+                //         $penaltyRemaining
+                //     );
 
-                    $remainingPayment -= $penaltyPaid;
-                }
+                //     $remainingPayment -= $penaltyPaid;
+                // }
 
-                /*
-                |--------------------------------------------------------------------------
-                | INTEREST SECOND
-                |--------------------------------------------------------------------------
-                */
+                // /*
+                // |--------------------------------------------------------------------------
+                // | INTEREST SECOND
+                // |--------------------------------------------------------------------------
+                // */
 
-                if (
-                    $remainingPayment > 0 &&
-                    $interestRemaining > 0
-                ) {
+                // if (
+                //     $remainingPayment > 0 &&
+                //     $interestRemaining > 0
+                // ) {
 
-                    $interestPaid = min(
-                        $remainingPayment,
-                        $interestRemaining
-                    );
+                //     $interestPaid = min(
+                //         $remainingPayment,
+                //         $interestRemaining
+                //     );
 
-                    $remainingPayment -= $interestPaid;
-                }
+                //     $remainingPayment -= $interestPaid;
+                // }
 
                 /*
                 |--------------------------------------------------------------------------
