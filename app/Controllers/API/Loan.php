@@ -1569,19 +1569,19 @@ class Loan extends BaseController
 
                 $scheduleId = $schedule['schedule_id'];
 
-                $penaltyRemaining =
-                    max(
-                        0,
-                        $schedule['penalty_due']
-                        - $schedule['penalty_paid']
-                    );
+                // $penaltyRemaining =
+                //     max(
+                //         0,
+                //         $schedule['penalty_due']
+                //         - $schedule['penalty_paid']
+                //     );
 
-                $interestRemaining =
-                    max(
-                        0,
-                        $schedule['interest_due']
-                        - $schedule['interest_paid']
-                    );
+                // $interestRemaining =
+                //     max(
+                //         0,
+                //         $schedule['interest_due']
+                //         - $schedule['interest_paid']
+                //     );
 
                 $principalRemaining =
                     max(
@@ -1590,15 +1590,15 @@ class Loan extends BaseController
                         - $schedule['principal_paid']
                     );
 
-                $penaltyPaid = 0;
-                $interestPaid = 0;
+                // $penaltyPaid = 0;
+                // $interestPaid = 0;
                 $principalPaid = 0;
 
-                // /*
-                // |--------------------------------------------------------------------------
-                // | PENALTY FIRST
-                // |--------------------------------------------------------------------------
-                // */
+                /*
+                |--------------------------------------------------------------------------
+                | PENALTY FIRST
+                |--------------------------------------------------------------------------
+                */
 
                 // if (
                 //     $remainingPayment > 0 &&
@@ -1655,13 +1655,13 @@ class Loan extends BaseController
                     $schedule['principal_paid']
                     + $principalPaid;
 
-                $updatedInterestPaid =
-                    $schedule['interest_paid']
-                    + $interestPaid;
+                // $updatedInterestPaid =
+                //     $schedule['interest_paid']
+                //     + $interestPaid;
 
-                $updatedPenaltyPaid =
-                    $schedule['penalty_paid']
-                    + $penaltyPaid;
+                // $updatedPenaltyPaid =
+                //     $schedule['penalty_paid']
+                //     + $penaltyPaid;
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1676,19 +1676,19 @@ class Loan extends BaseController
                         - $updatedPrincipalPaid
                     );
 
-                $interestRemaining =
-                    max(
-                        0,
-                        $schedule['interest_due']
-                        - $updatedInterestPaid
-                    );
+                // $interestRemaining =
+                //     max(
+                //         0,
+                //         $schedule['interest_due']
+                //         - $updatedInterestPaid
+                //     );
 
-                $penaltyRemaining =
-                    max(
-                        0,
-                        $schedule['penalty_due']
-                        - $updatedPenaltyPaid
-                    );
+                // $penaltyRemaining =
+                //     max(
+                //         0,
+                //         $schedule['penalty_due']
+                //         - $updatedPenaltyPaid
+                //     );
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1697,17 +1697,19 @@ class Loan extends BaseController
                 */
 
                 if (
-                    $principalRemaining <= 0 &&
-                    $interestRemaining <= 0 &&
-                    $penaltyRemaining <= 0
+                    $principalRemaining <= 0 
+                    // &&
+                    // $interestRemaining <= 0 &&
+                    // $penaltyRemaining <= 0
                 ) {
 
                     $status = 'PAID';
 
                 } elseif (
-                    $updatedPrincipalPaid > 0 ||
-                    $updatedInterestPaid > 0 ||
-                    $updatedPenaltyPaid > 0
+                    $updatedPrincipalPaid > 0 
+                    // ||
+                    // $updatedInterestPaid > 0 ||
+                    // $updatedPenaltyPaid > 0
                 ) {
 
                     $status = 'PARTIAL';
@@ -1727,8 +1729,8 @@ class Loan extends BaseController
                     ->where('schedule_id', $scheduleId)
                     ->update([
                         'principal_paid' => $updatedPrincipalPaid,
-                        'interest_paid'  => $updatedInterestPaid,
-                        'penalty_paid'   => $updatedPenaltyPaid,
+                        // 'interest_paid'  => $updatedInterestPaid,
+                        // 'penalty_paid'   => $updatedPenaltyPaid,
                         'status'         => $status
                     ]);
 
@@ -1745,9 +1747,7 @@ class Loan extends BaseController
                 */
 
                 $paymentTotal =
-                    $principalPaid +
-                    $interestPaid +
-                    $penaltyPaid;
+                    $principalPaid;
 
 
                 /*
@@ -1767,11 +1767,8 @@ class Loan extends BaseController
                             'principal_amount' =>
                                 $principalPaid,
 
-                            'interest_amount' =>
-                                $interestPaid,
-
-                            'penalty_amount' =>
-                                $penaltyPaid,
+                            'payment_type' =>
+                                'Principal',
 
                             'total_amount' =>
                                 $paymentTotal,
