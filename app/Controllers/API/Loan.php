@@ -1547,7 +1547,7 @@ class Loan extends BaseController
             $db->transBegin();
 
             $loanId = (int)$input['loan_id'];
-            $schedule_id = (int)$input['schedule_id'];
+            $scheduleId = $schedule['schedule_id'];
             $amount = (float)$input['amount'];
 
             $remainingPayment = $amount;
@@ -1569,7 +1569,7 @@ class Loan extends BaseController
                     break;
                 }
 
-                $scheduleId = $schedule['schedule_id'];
+               
 
                 // $penaltyRemaining =
                 //     max(
@@ -1706,6 +1706,13 @@ class Loan extends BaseController
                 ) {
 
                     $status = 'PAID';
+
+                    $db->table('loan_schedule')
+                    ->where('loan_id', $loanId)
+                    ->update([
+                        'status'         => 'PAID'
+                    ]);
+
 
                 } elseif (
                     $updatedPrincipalPaid > 0 
