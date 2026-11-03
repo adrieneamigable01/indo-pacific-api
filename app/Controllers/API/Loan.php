@@ -1653,6 +1653,8 @@ class Loan extends BaseController
                     $remainingPayment -= $principalPaid;
                 }
 
+      
+
                 $updatedPrincipalPaid =
                     $schedule['principal_paid']
                     + $principalPaid;
@@ -1677,6 +1679,7 @@ class Loan extends BaseController
                         $schedule['principal_due']
                         - $updatedPrincipalPaid
                     );
+               
 
                 // $interestRemaining =
                 //     max(
@@ -1700,9 +1703,6 @@ class Loan extends BaseController
 
                 if (
                     $principalRemaining <= 0 
-                    // &&
-                    // $interestRemaining <= 0 &&
-                    // $penaltyRemaining <= 0
                 ) {
 
                     $status = 'PAID';
@@ -1764,7 +1764,7 @@ class Loan extends BaseController
                 | Only insert if something was actually paid
                 |--------------------------------------------------------------------------
                 */
-
+        
                 if ($paymentTotal > 0) {
 
                     $db->table('loan_payments')
@@ -1794,7 +1794,7 @@ class Loan extends BaseController
 
                 }
             }
-
+                  
             /*
             |--------------------------------------------------------------------------
             | CHECK IF LOAN IS FULLY PAID
