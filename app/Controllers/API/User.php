@@ -3,6 +3,7 @@
 namespace App\Controllers\API;
 
 use App\Models\UserModel;
+use App\Models\UsersModel;
 use App\Models\AuditLogModel;
 use App\Controllers\BaseController;
 use CodeIgniter\HTTP\Response;
@@ -437,6 +438,44 @@ class User extends BaseController
 
             $data =
                 $model->getCashiers(
+                    $search
+                );
+
+            return $this->response->setJSON([
+
+                'isError' => false,
+
+                'message' => 'Success',
+
+                'data' => $data
+
+            ]);
+
+        } catch (Exception $e) {
+
+            return $this->response->setJSON([
+
+                'isError' => true,
+
+                'message' => $e->getMessage()
+
+            ]);
+
+        }
+
+    }
+    public function getActiveUsers()
+    {
+        try {
+
+            $model = new UsersModel();
+
+            $search =
+                $this->request
+                    ->getGet('search');
+
+            $data =
+                $model->getActiveUsers(
                     $search
                 );
 

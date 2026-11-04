@@ -26,6 +26,7 @@ class CashierVaultModel extends Model
         'reference_no',
         'remarks',
         'created_by',
+        'request_by',
         'created_at',
         'deleted_at',
         'is_active'
@@ -243,6 +244,12 @@ class CashierVaultModel extends Model
                     IFNULL(u.lastname,'')
 
                 ) AS created_by_name,
+
+                CONCAT(
+                    IFNULL(r.firstname,''),
+                    ' ',
+                    IFNULL(r.lastname,'')
+                ) AS request_by_name,
                 
                 CONCAT(
                     cv.amount,
@@ -317,6 +324,12 @@ class CashierVaultModel extends Model
 
                 'left'
 
+            )
+
+            ->join(
+                'users r',
+                'r.userid = cv.request_by',
+                'left'
             )
 
             ->where(
@@ -1096,6 +1109,13 @@ class CashierVaultModel extends Model
                     IFNULL(u.lastname,'')
 
                 ) AS created_by_name,
+
+                CONCAT(
+                    IFNULL(r.firstname,''),
+                    ' ',
+                    IFNULL(r.lastname,'')
+                ) AS request_by_name,
+
                   CONCAT(
 
                     IFNULL(b.last_name,''),
@@ -1137,6 +1157,11 @@ class CashierVaultModel extends Model
 
             )
 
+            ->join(
+                'users r',
+                'r.userid = cv.request_by',
+                'left'
+            )
             ->where(
 
                 'cv.cashier_transaction_id',
@@ -1144,6 +1169,8 @@ class CashierVaultModel extends Model
                 $cashierTransactionId
 
             )
+
+            
 
             ->where(
 
@@ -2250,6 +2277,9 @@ class CashierVaultModel extends Model
 
                 'created_by' =>
                     $data['created_by'],
+
+                'request_by' =>
+                    $data['request_by'],
 
                 'created_at' =>
                     $data['created_at'],

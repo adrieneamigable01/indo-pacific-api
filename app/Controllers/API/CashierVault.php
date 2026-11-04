@@ -1661,6 +1661,9 @@ class CashierVault extends BaseController
                 'cashier_id' =>
                     'required|numeric',
 
+                'requestById' =>
+                    'required|numeric',
+
                 'transaction_type' =>
                     'required',
 
@@ -1704,6 +1707,11 @@ class CashierVault extends BaseController
             $borrowerId =
                 !empty($input['borrower_id'])
                     ? (int)$input['borrower_id']
+                    : null;
+
+            $requestById =
+                !empty($input['requestById'])
+                    ? (int)$input['requestById']
                     : null;
             /*
             |--------------------------------------------------------------------------
@@ -1870,6 +1878,8 @@ class CashierVault extends BaseController
                 log_message('error', 'Audit JWT Error: ' . $e->getMessage());
             }
 
+
+
             $transactionId =
                 $this->cashierVaultModel
                     ->insertTransaction([
@@ -1899,6 +1909,7 @@ class CashierVault extends BaseController
                                  $transactionType
                             ),
                         'borrower_id' => $borrowerId,
+                        'request_by' => $requestById,
                         'remarks' =>
                             $input['remarks']
                             ?? '',
