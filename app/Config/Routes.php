@@ -164,6 +164,7 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
 
     $routes->get('user/get/cashier', 'API\\User::getCashiers', ['filter' => 'auth']);
     $routes->get('user/get/profile', 'API\\User::getProfile', ['filter' => 'auth']);
+    $routes->get('user/get/all', 'API\\User::getActiveUsers', ['filter' => 'auth']);
     $routes->post('user/otp/change-password', 'API\\User::sendChangePasswordOTP', ['filter' => 'auth']);
     $routes->post('user/change-password', 'API\\User::changePassword', ['filter' => 'auth']);
     $routes->put('user/update/profile', 'API\\User::updateProfile', ['filter' => 'auth']);
