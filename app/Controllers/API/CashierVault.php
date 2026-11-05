@@ -1924,48 +1924,37 @@ class CashierVault extends BaseController
             |--------------------------------------------------------------------------
             */
 
-            if (
-                !empty($input['details'])
-            ) {
+            $details = $input['details'] ?? '[]';
 
-                foreach (
-                    $input['details']
-                    as $detail
-                ) {
+                if (is_string($details)) {
+                    $details = json_decode($details, true);
+                }
 
-                    $this->cashierVaultModel
-                    ->insertDetail([
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($details)) {
+                    throw new \Exception('Invalid details JSON format.');
+                }
 
-                        'cashier_transaction_id' =>
-                            $transactionId,
+                foreach ($details as $detail) {
 
-                        'transaction_type' =>
-                            strtoupper(
-                                $detail['transaction_type']
-                                ?? 'CASH_OUT'
-                            ),
+                    $this->cashierVaultModel->insertDetail([
 
-                        'reference_type' =>
-                            $detail['reference_type']
-                            ?? '',
+                        'cashier_transaction_id' => $transactionId,
 
-                        'reference_id' =>
-                            $detail['reference_id']
-                            ?? null,
+                        'transaction_type' => strtoupper(
+                            $detail['transaction_type'] ?? 'CASH_OUT'
+                        ),
 
-                        'description' =>
-                            $detail['description']
-                            ?? '',
+                        'reference_type' => $detail['reference_type'] ?? '',
 
-                        'amount' =>
-                            (float)$detail['amount']
+                        'reference_id' => $detail['reference_id'] ?? null,
+
+                        'description' => $detail['description'] ?? '',
+
+                        'amount' => (float)($detail['amount'] ?? 0)
 
                     ]);
 
                 }
-
-            }
-
 
             $this->cashierVaultModel->rebuildCashierBalances(
 
@@ -1974,6 +1963,131 @@ class CashierVault extends BaseController
                 $businessDate
 
             );
+
+
+            $uploadedImages = $this->request
+                ->getFileMultiple('request_images') ?? [];
+
+            if (!is_array($uploadedImages)) {
+                $uploadedImages = [];
+            }
+
+            $allowedMimeTypes = [
+                'image/jpeg',
+                'image/png',
+                'image/webp'
+            ];
+
+            foreach ($uploadedImages as $file) {
+
+                if (!$file->isValid()) {
+
+                    return $this->getResponse([
+
+                        'isError' => true,
+
+                        'message' => 'Invalid uploaded image.'
+
+                    ]);
+
+                }
+
+                if (!in_array(
+                    $file->getMimeType(),
+                    $allowedMimeTypes,
+                    true
+                )) {
+
+                    return $this->getResponse([
+
+                        'isError' => true,
+
+                        'message' => 'Only JPG, PNG and WEBP images are allowed.'
+
+                    ]);
+
+                }
+
+                if ($file->getSizeByUnit('mb') > 5) {
+
+                    return $this->getResponse([
+
+                        'isError' => true,
+
+                        'message' => 'Each image must not exceed 5MB.'
+
+                    ]);
+
+                }
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | SAVE TRANSACTION IMAGES
+            |--------------------------------------------------------------------------
+            */
+
+            $uploadedImages = $this->request->getFileMultiple('request_images') ?? [];
+
+            log_message('debug', 'Uploaded images: ' . print_r($uploadedImages, true));
+
+            if (!is_array($uploadedImages)) {
+                $uploadedImages = [];
+            }
+
+            $uploadPath = FCPATH . 'uploads/cashier_vault/';
+
+            if (!is_dir($uploadPath)) {
+                mkdir($uploadPath, 0775, true);
+            }
+
+            foreach ($uploadedImages as $file) {
+
+                if (!$file->isValid()) {
+                    throw new \Exception($file->getErrorString());
+                }
+
+                $mimeType = $file->getMimeType();
+
+                if (!in_array($mimeType, [
+                    'image/jpeg',
+                    'image/png',
+                    'image/webp'
+                ], true)) {
+                    throw new \Exception('Invalid image format.');
+                }
+
+                if ($file->getSizeByUnit('mb') > 5) {
+                    throw new \Exception('Image exceeds 5MB.');
+                }
+
+                $newName = $file->getRandomName();
+
+                if (!$file->move($uploadPath, $newName)) {
+                    throw new \Exception('Unable to move uploaded image.');
+                }
+
+                // THIS IS THE DATABASE INSERT CALL
+                $saved = $this->cashierVaultModel->insertTransactionImage([
+
+                    'cashier_transaction_id' => $transactionId,
+                    'image_name' => $newName,
+                    'image_path' => 'uploads/cashier_vault/' . $newName,
+                    'image_type' => $mimeType,
+                    'image_size' => $file->getSize(),
+                    'uploaded_by' => $userId
+
+                ]);
+
+                if (!$saved) {
+                    throw new \Exception(
+                        'Failed to insert image record into cashier_vault_images.'
+                    );
+                }
+
+            }
 
             $db->transCommit();
 

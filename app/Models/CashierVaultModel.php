@@ -1522,6 +1522,14 @@ class CashierVaultModel extends Model
 
         }
 
+        $transaction['images'] = $this->db
+        ->table('cashier_vault_images')
+        ->where('cashier_transaction_id', $cashierTransactionId)
+        ->where('is_active', 1)
+        ->orderBy('image_id ', 'ASC')
+        ->get()
+        ->getResultArray();
+
         return $transaction;
 
     }
@@ -2294,6 +2302,26 @@ class CashierVaultModel extends Model
         return $this->db->insertID();
     }
 
+    public function insertTransactionImage(array $data)
+    {
+        $builder = $this->db->table('cashier_vault_images');
+
+        $result = $builder->insert([
+            'cashier_transaction_id' => $data['cashier_transaction_id'],
+            'image_name' => $data['image_name'],
+            'image_path' => $data['image_path'],
+            'image_type' => $data['image_type'],
+            'image_size' => $data['image_size'],
+            'uploaded_by' => $data['uploaded_by'],
+            'is_active' => 1
+        ]);
+
+        if (!$result) {
+            log_message('error', 'Image insert failed: ' . json_encode($this->db->error()));
+        }
+
+        return $result;
+    }
     public function insertDetail(
         array $data
     )
