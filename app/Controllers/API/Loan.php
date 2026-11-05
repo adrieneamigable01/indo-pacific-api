@@ -1406,6 +1406,149 @@ class Loan extends BaseController
 
         }
     }
+    public function updateLoanDetails()
+    {
+        try {
+
+            $input = $this->getRequestInput($this->request);
+
+            $validation = \Config\Services::validation();
+
+            $validation->setRules([
+
+                'loan_id'                    => 'required|numeric',
+                'loan_product_id'            => 'required|numeric',
+                'loan_amount'                => 'required|decimal',
+                'loan_terms'                 => 'required|numeric',
+                'approved_interest_rate'     => 'required|decimal',
+                'approved_processing_fee'    => 'permit_empty|decimal',
+                'void_reason'                => 'required',
+                'delete_by'                  => 'required|numeric',
+            ]);
+
+            if (!$validation->run($input)) {
+
+                return $this->getResponse([
+                    'isError' => true,
+                    'message' => $validation->getErrors()
+                ]);
+
+            }
+
+            $db = \Config\Database::connect();
+
+            $db->transBegin();
+
+            $loanId = (int)$input['loan_id'];
+
+            /*
+            |--------------------------------------------------------------------------
+            | GET LOAN
+            |--------------------------------------------------------------------------
+            */
+
+            $loan = $db->table('loans')
+                ->where('loan_id', $loanId)
+                ->get()
+                ->getRowArray();
+
+            if (!$loan) {
+
+                throw new \Exception(
+                    'Loan not found.'
+                );
+
+            }
+
+           
+
+            /*
+            |--------------------------------------------------------------------------
+            | UPDATE LOAN
+            |--------------------------------------------------------------------------
+            */
+
+            $updateData = [
+
+                'loan_product_id' =>
+                    $input['loan_product_id'],
+
+                'loan_amount' =>
+                    $input['loan_amount'],
+
+                'loan_terms' =>
+                    $input['loan_terms'],
+
+                'approved_interest_rate' =>
+                    $input['approved_interest_rate'],
+
+                'approved_processing_fee' =>
+                    $input['approved_processing_fee'],
+
+                'monthly_interest_deduction' =>
+                    $input['monthly_interest_deduction'],
+
+            ];
+
+            $db->table('loans')
+                ->where('loan_id', $loanId)
+                ->update($updateData);
+
+         
+
+            $newLoan = $db->table('loans')
+                ->where('loan_id', $loanId)
+                ->get()
+                ->getRowArray();
+
+            /*
+            |--------------------------------------------------------------------------
+            | AUDIT LOG
+            |--------------------------------------------------------------------------
+            */
+
+            $this->createAuditLog(
+
+                'LOAN',
+
+                $loanId,
+
+                'UPDATE',
+
+                $loan,
+
+                $newLoan,
+
+                'Loan updated'
+
+            );
+
+            if ($db->transStatus() === false) {
+
+                $db->transRollback();
+
+                throw new \Exception(
+                    'Failed updating loan.'
+                );
+
+            }
+
+            $db->transCommit();
+
+            return $this->getResponse([
+                'isError' => false,
+                'message' => 'Loan successfully updated.'
+            ]);
+
+        } catch (\Exception $e) {
+
+            return $this->getResponse([
+                'isError' => true,
+                'message' => $e->getMessage()
+            ]);
+
+        }
+    }
 
     public function getLoanSummary($loanId)
     {
