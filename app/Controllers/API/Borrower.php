@@ -4,6 +4,7 @@ namespace App\Controllers\API;
 
 
 use App\Models\BorrowerModel;
+use App\Models\BorrowerNoteModel;
 use App\Controllers\BaseController;
 use CodeIgniter\HTTP\Response;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -1948,6 +1949,138 @@ class Borrower extends BaseController
         }
 
         return true;
+    }
+
+    public function getBorrowerNotes()
+    {
+        $borrowerId = (int) $this->request->getGet('borrower_id');
+        $search = trim($this->request->getGet('search') ?? '');
+
+        if (!$borrowerId) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Invalid borrower ID.',
+                'data' => []
+            ]);
+        }
+
+        $model = new BorrowerNoteModel();
+
+        $data = $model->getBorrowerNotes(
+            $borrowerId,
+            $search
+        );
+
+        return $this->response->setJSON([
+            'isError' => false,
+            'message' => 'Borrower notes retrieved successfully.',
+            'data' => $data
+        ]);
+    }
+
+    public function addBorrowerNote()
+    {
+        $borrowerId = (int) $this->request->getPost('borrower_id');
+        $note = trim($this->request->getPost('note') ?? '');
+
+        if (!$borrowerId || $note === '') {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Borrower and note are required.'
+            ]);
+        }
+
+
+         $userId = null;
+
+        try {
+
+            $authHeader = $this->request->getHeaderLine('Authorization');
+
+            if (!empty($authHeader)) {
+
+                $token = str_replace(
+                    'Bearer ',
+                    '',
+                    $this->request->getHeaderLine('Authorization')
+                );
+
+                        $encodedToken = decodeJWT($token);
+                
+                if (isset($encodedToken->data)) {
+
+                    $jwtData = (array)$encodedToken->data;
+                    
+                    $userId = $jwtData['userid'] ?? null;
+                    $userName =  $jwtData['firstname'].' '.  $jwtData['lastname']
+                    ??   $jwtData['firstname'].' '.  $jwtData['lastname']
+                    ?? 'Unknown User';
+                }
+            }
+
+        } catch (\Exception $e) {
+            log_message('error', 'Audit JWT Error: ' . $e->getMessage());
+        }
+
+
+    
+      
+
+        $model = new BorrowerNoteModel();
+
+        $noteId = $model->addBorrowerNote([
+
+            'borrower_id' => $borrowerId,
+
+            'note' => $note,
+
+            'created_by' => $userId,
+
+            'created_by_name' => $userName
+
+        ]);
+
+        if (!$noteId) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Failed to save borrower note.'
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'isError' => false,
+            'message' => 'Borrower note added successfully.',
+            'data' => [
+                'note_id' => $noteId
+            ]
+        ]);
+    }
+
+    public function deleteBorrowerNote()
+    {
+        $noteId = (int) $this->request->getPost('note_id');
+        $borrowerId = (int) $this->request->getPost('borrower_id');
+
+        if (!$noteId || !$borrowerId) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Invalid note information.'
+            ]);
+        }
+
+        $model = new BorrowerNoteModel();
+
+        $deleted = $model->deleteBorrowerNote(
+            $noteId,
+            $borrowerId
+        );
+
+        return $this->response->setJSON([
+            'isError' => !$deleted,
+            'message' => $deleted
+                ? 'Borrower note deleted successfully.'
+                : 'Unable to delete borrower note.'
+        ]);
     }
 
 }

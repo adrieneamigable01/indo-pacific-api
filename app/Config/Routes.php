@@ -605,4 +605,20 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
     $routes->get('borrower-incentive/voucher', 'API\BorrowerIncentive::generateVoucher');
 
     $routes->get('borrower/generate-list', 'API\Borrower::generateBorrowerList');
+
+
+    $routes->get(
+        'borrower/getBorrowerNotes',
+        'API\Borrower::getBorrowerNotes',  ['filter' => 'auth']
+    );
+
+    $routes->post(
+        'borrower/addBorrowerNote',
+        'API\Borrower::addBorrowerNote', ['filter' => 'auth']
+    );
+
+    $routes->post(
+        'borrower/deleteBorrowerNote',
+        'API\Borrower::deleteBorrowerNote', ['filter' => 'auth']
+    );
 }); 
