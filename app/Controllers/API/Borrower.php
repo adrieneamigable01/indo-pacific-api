@@ -1959,29 +1959,28 @@ class Borrower extends BaseController
         if (!$borrowerId) {
             return $this->response->setJSON([
                 'isError' => true,
-                'message' => 'Invalid borrower ID.',
-                'data' => []
+                'message' => 'Borrower ID is required.'
             ]);
         }
 
         $model = new BorrowerNoteModel();
 
-        $data = $model->getBorrowerNotes(
-            $borrowerId,
-            $search
-        );
-
         return $this->response->setJSON([
             'isError' => false,
             'message' => 'Borrower notes retrieved successfully.',
-            'data' => $data
+            'data' => $model->getBorrowerNotes($borrowerId, $search),
+            'review_notes' => $model->getBorrowerReviewNotes($borrowerId)
         ]);
     }
 
+    
+    
     public function addBorrowerNote()
     {
         $borrowerId = (int) $this->request->getPost('borrower_id');
-        $note = trim($this->request->getPost('note') ?? '');
+        $note       = trim($this->request->getPost('note') ?? '');
+        $status     = $this->request->getPost('status') ?? 'normal';
+        $noteId     = (int) ($this->request->getPost('note_id') ?? 0);
 
         if (!$borrowerId || $note === '') {
             return $this->response->setJSON([
@@ -1990,8 +1989,16 @@ class Borrower extends BaseController
             ]);
         }
 
+        if (!in_array($status, ['normal', 'borrower_review'], true)) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Invalid note status.'
+            ]);
+        }
 
-         $userId = null;
+        // JWT AUTHENTICATION
+        $userId = null;
+        $userName = 'Unknown User';
 
         try {
 
@@ -1999,51 +2006,111 @@ class Borrower extends BaseController
 
             if (!empty($authHeader)) {
 
-                $token = str_replace(
-                    'Bearer ',
-                    '',
-                    $this->request->getHeaderLine('Authorization')
-                );
+                $token = str_replace('Bearer ', '', $authHeader);
 
-                        $encodedToken = decodeJWT($token);
-                
+                $encodedToken = decodeJWT($token);
+
                 if (isset($encodedToken->data)) {
 
-                    $jwtData = (array)$encodedToken->data;
-                    
+                    $jwtData = (array) $encodedToken->data;
+
                     $userId = $jwtData['userid'] ?? null;
-                    $userName =  $jwtData['firstname'].' '.  $jwtData['lastname']
-                    ??   $jwtData['firstname'].' '.  $jwtData['lastname']
-                    ?? 'Unknown User';
+
+                    $firstName = $jwtData['firstname'] ?? '';
+                    $lastName  = $jwtData['lastname'] ?? '';
+
+                    $userName = trim($firstName . ' ' . $lastName);
+
+                    if ($userName === '') {
+                        $userName = 'Unknown User';
+                    }
                 }
             }
 
         } catch (\Exception $e) {
+
             log_message('error', 'Audit JWT Error: ' . $e->getMessage());
+
         }
-
-
-    
-      
 
         $model = new BorrowerNoteModel();
 
-        $noteId = $model->addBorrowerNote([
-
+        $data = [
             'borrower_id' => $borrowerId,
+            'note'        => $note,
+            'status'      => $status
+        ];
 
-            'note' => $note,
+        // =====================================
+        // REVIEW NOTE: UPDATE OR INSERT
+        // =====================================
 
-            'created_by' => $userId,
+        if ($status === 'borrower_review') {
 
-            'created_by_name' => $userName
+            // If note_id is supplied, verify that exact record
+            if ($noteId > 0) {
 
-        ]);
+                $existingNote = $model
+                    ->where('note_id', $noteId)
+                    ->where('borrower_id', $borrowerId)
+                    ->where('status', 'borrower_review')
+                    ->first();
 
-        if (!$noteId) {
+            } else {
+
+                // If no note_id, find an existing review note
+                $existingNote = $model->getExistingReviewNote($borrowerId);
+
+            }
+
+            if ($existingNote) {
+
+                $targetNoteId = (int) $existingNote['note_id'];
+
+                $updated = $model->update($targetNoteId, $data);
+
+                if (!$updated) {
+                    return $this->response->setJSON([
+                        'isError' => true,
+                        'message' => 'Failed to update borrower review note.',
+                        'errors' => $model->errors()
+                    ]);
+                }
+
+                return $this->response->setJSON([
+                    'isError' => false,
+                    'message' => 'Borrower review note updated successfully.',
+                    'data' => [
+                        'note_id' => $targetNoteId,
+                        'status' => 'borrower_review',
+                        'action' => 'updated'
+                    ]
+                ]);
+            }
+
+            // No existing review note: insert the first one
+            if ($noteId > 0) {
+                return $this->response->setJSON([
+                    'isError' => true,
+                    'message' => 'The selected review note was not found.'
+                ]);
+            }
+        }
+
+        // =====================================
+        // NORMAL NOTE OR FIRST REVIEW NOTE
+        // =====================================
+
+        $data['created_by'] = $userId;
+        $data['created_by_name'] = $userName;
+
+        $newNoteId = $model->addBorrowerNote($data);
+
+        if (!$newNoteId) {
             return $this->response->setJSON([
                 'isError' => true,
-                'message' => 'Failed to save borrower note.'
+                'message' => 'Failed to save borrower note.',
+                'errors' => $model->errors()
             ]);
         }
 
@@ -2051,10 +2118,14 @@ class Borrower extends BaseController
             'isError' => false,
             'message' => 'Borrower note added successfully.',
             'data' => [
-                'note_id' => $noteId
+                'note_id' => $newNoteId,
+                'status' => $status,
+                'action' => 'inserted'
             ]
         ]);
     }
+
+
 
     public function deleteBorrowerNote()
     {
