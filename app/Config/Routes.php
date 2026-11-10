@@ -621,4 +621,11 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         'borrower/deleteBorrowerNote',
         'API\Borrower::deleteBorrowerNote', ['filter' => 'auth']
     );
+
+    $routes->get('loan/getLoanComakers', 'API\\Loan::getLoanComakers');
+    $routes->post('loan/deleteLoanComaker', 'API\\Loan::deleteLoanComaker');
+    $routes->get(
+        'loan/printComakerAddendum/(:num)/(:num)',
+        'API\\Loan::printComakerAddendum/$1/$2'
+    );
 }); 

@@ -5056,6 +5056,21 @@ class Loan extends BaseController
 
             }
 
+
+            $db->table(
+                'borrower_salary'
+            )
+            ->where(
+                'salary_id ',
+                $input['salary_id'] 
+            )
+            ->update([
+
+                'status' =>
+                    'TAKEN'
+
+            ]);
+
             if(
                 $db->transStatus()
                 === false
@@ -5280,6 +5295,63 @@ class Loan extends BaseController
     }
 
 
+    public function getLoanComakers()
+    {
+        $db = \Config\Database::connect();
+        $loanId = (int) $this->request->getGet('loan_id');
+
+        if (!$loanId) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Loan ID is required.'
+            ]);
+        }
+
+        $comakers = $db->table('loan_comakers')
+            ->where('loan_id', $loanId)
+            ->get()
+            ->getResultArray();
+
+        return $this->response->setJSON([
+            'isError' => false,
+            'message' => 'Co-makers retrieved successfully.',
+            'data' => $comakers
+        ]);
+    }
+
+
+    public function deleteLoanComaker()
+    {
+        $db = \Config\Database::connect();
+        $comakerId = (int) $this->request->getPost('comaker_id');
+
+        if (!$comakerId) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Co-maker ID is required.'
+            ]);
+        }
+
+        $deleted = $this->db->table('loan_comakers')
+            ->where('comaker_id', $comakerId)
+            ->delete();
+
+        if (!$deleted) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Failed to delete co-maker.'
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'isError' => false,
+            'message' => 'Co-maker deleted successfully.'
+        ]);
+    }
+
+
+
+
     public function contractOfLoan()
     {
         $loanId = $this->request->getGet('id');
@@ -5312,6 +5384,86 @@ class Loan extends BaseController
             $html
         );
     }
+
+
+    public function printComakerAddendum($loanId = null, $comakerId = null)
+    {
+        $loanId = (int) ($loanId ?? $this->request->getGet('loan_id'));
+        $comakerId = (int) ($comakerId ?? $this->request->getGet('comaker_id'));
+    
+        if (!$loanId || !$comakerId) {
+            return $this->response->setStatusCode(400)->setBody(
+                'Loan ID and Co-Maker ID are required.'
+            );
+        }
+
+        $loanModel = new LoanModel();
+
+        // Get loan details
+        $loan = $loanModel->getLoanDetails($loanId);
+
+        if (empty($loan)) {
+            return $this->response->setStatusCode(404)->setBody(
+                'Loan record not found.'
+            );
+        }
+
+        // Get all co-makers for this loan
+        $comakers = $loanModel->getComakers($loanId);
+     
+        // Find the selected co-maker
+        $comaker = null;
+
+        foreach ($comakers as $row) {
+            if ((int) ($row['comaker_id'] ?? 0) === $comakerId) {
+                $comaker = $row;
+                break;
+            }
+        }
+
+        if (!$comaker) {
+            return $this->response->setStatusCode(404)->setBody(
+                'Selected co-maker was not found for this loan.'
+            );
+        }
+
+        // Get company representative
+        $representative = $loanModel->getRepresentative();
+
+        if (empty($representative)) {
+            return $this->response->setStatusCode(404)->setBody(
+                'Company representative was not found.'
+            );
+        }
+
+        $fullname = trim(
+            ($loan['first_name'] ?? '') . ' ' .
+            ($loan['middle_name'] ?? '') . ' ' .
+            ($loan['last_name'] ?? '')
+        );
+
+        $name = 'Addendum to Contract of Loan - ' .
+                $fullname . ' - ' .
+                ($comaker['name'] ?? 'Co-Maker');
+
+        $data = [
+            'loan' => $loan,
+            'comaker' => $comaker,
+            'representative' => $representative,
+            'title' => $name
+        ];
+
+        $pdf = new Pdf();
+
+        $html = view('pdf/comaker_addendum', $data);
+
+        $pdf->load_view2_portrait(
+            $name,
+            $html
+        );
+    }
+
+
     public function loanAddendum()
     {
         $loanId = $this->request->getGet('id');
