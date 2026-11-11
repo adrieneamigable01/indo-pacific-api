@@ -5320,11 +5320,12 @@ class Loan extends BaseController
     }
 
 
+    
     public function deleteLoanComaker()
     {
-        $db = \Config\Database::connect();
+         $db = \Config\Database::connect();
         $comakerId = (int) $this->request->getPost('comaker_id');
-
+        $reason = trim($this->request->getPost('disabled_reason') ?? '');
         if (!$comakerId) {
             return $this->response->setJSON([
                 'isError' => true,
@@ -5332,22 +5333,49 @@ class Loan extends BaseController
             ]);
         }
 
-        $deleted = $this->db->table('loan_comakers')
-            ->where('comaker_id', $comakerId)
-            ->delete();
-
-        if (!$deleted) {
+        if ($reason === '') {
             return $this->response->setJSON([
                 'isError' => true,
-                'message' => 'Failed to delete co-maker.'
+                'message' => 'Please provide a reason for disabling this co-maker.'
+            ]);
+        }
+
+        // Check if co-maker exists and is active
+        $comaker = $db->table('loan_comakers')
+            ->where('comaker_id', $comakerId)
+            ->where('isActive', 1)
+            ->get()
+            ->getRowArray();
+
+        if (!$comaker) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Co-maker not found or already disabled.'
+            ]);
+        }
+
+        // Soft delete
+        $updated = $db->table('loan_comakers')
+            ->where('comaker_id', $comakerId)
+            ->update([
+                'isActive' => 0,
+                'status'   => 'disabled',
+                'disabled_reason' => $reason
+            ]);
+
+        if (!$updated) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Failed to disable co-maker.'
             ]);
         }
 
         return $this->response->setJSON([
             'isError' => false,
-            'message' => 'Co-maker deleted successfully.'
+            'message' => 'Co-maker successfully disabled.'
         ]);
     }
+
 
 
 
@@ -5462,6 +5490,68 @@ class Loan extends BaseController
             $html
         );
     }
+
+
+    public function addLoanComaker()
+    {
+        $db = \Config\Database::connect();
+        $loanId = (int) $this->request->getPost('loan_id');
+
+        $name = trim($this->request->getPost('comaker_name') ?? '');
+        $contact = trim($this->request->getPost('contact_number') ?? '');
+        $address = trim($this->request->getPost('address') ?? '');
+
+        // Validate required fields
+        if (!$loanId || $name === '' || $address === '') {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Loan ID, co-maker name, and address are required.'
+            ]);
+        }
+
+        // Check if loan exists
+        $loan = $db->table('loans')
+            ->where('loan_id', $loanId)
+            ->get()
+            ->getRowArray();
+
+        if (!$loan) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Loan record not found.'
+            ]);
+        }
+
+        // Insert co-maker
+        $data = [
+            'loan_id'       => $loanId,
+            'name'  => $name,
+            'phone'=> $contact,
+            'address'       => $address
+        ];
+
+        $inserted = $db->table('loan_comakers')->insert($data);
+
+        if (!$inserted) {
+            return $this->response->setJSON([
+                'isError' => true,
+                'message' => 'Failed to add co-maker.'
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'isError' => false,
+            'message' => 'Co-maker successfully added.',
+            'data' => [
+                'comaker_id' => $db->insertID(),
+                'loan_id' => $loanId,
+                'name' => $name,
+                'phone' => $contact,
+                'address' => $address
+            ]
+        ]);
+    }
+
 
 
     public function loanAddendum()

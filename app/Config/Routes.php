@@ -628,4 +628,6 @@ $routes->group('', ['filter' => 'cors'], function ($routes) {
         'loan/printComakerAddendum/(:num)/(:num)',
         'API\\Loan::printComakerAddendum/$1/$2'
     );
+
+    $routes->post('loan/addLoanComaker', 'API\\Loan::addLoanComaker');
 }); 
