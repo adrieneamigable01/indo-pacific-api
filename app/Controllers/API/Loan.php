@@ -5527,7 +5527,8 @@ class Loan extends BaseController
             'loan_id'       => $loanId,
             'name'  => $name,
             'phone'=> $contact,
-            'address'       => $address
+            'address'       => $address,
+            'status'       => 'additional'
         ];
 
         $inserted = $db->table('loan_comakers')->insert($data);
